@@ -24,9 +24,10 @@ class RootStore {
       currentPen: 'pencil',
       currentBrushSize: 'medium', // 当前画笔大小
       pens: {
-        pencil: { color: '#000000', width: 2 },
-        marker: { color: '#333333', width: 4 },
-        glow: { color: '#ffffff', width: 3 }
+        pencil: { color: '#000000', width: 2, opacity: 1.0, zIndex: 4 },
+        pen: { color: '#000000', width: 1, opacity: 1.0, zIndex: 3 },
+        marker: { color: '#333333', width: 4, opacity: 0.8, zIndex: 2 },
+        glow: { color: '#ffffff', width: 3, opacity: 0.5, zIndex: 1 }
       },
       brushSizes: {
         small: { size: 2, spacing: 4, label: '小' },

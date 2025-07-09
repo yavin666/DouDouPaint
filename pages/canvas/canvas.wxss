@@ -19,13 +19,25 @@
   display: block;
   touch-action: none;
   width: 750rpx; /* 使用 rpx 单位，自动适配不同屏幕 */
-  height: calc(100vh - 320rpx); /* 减去工具栏高度 */
+  height: calc(100vh - 380rpx); /* 减去工具栏高度 */
   flex: 1;
+}
+
+/* 透明背景时显示深色棋盘格 */
+.main-canvas.transparent-bg {
+  background-image:
+    linear-gradient(45deg, #666666 25%, transparent 25%),
+    linear-gradient(-45deg, #666666 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #666666 75%),
+    linear-gradient(-45deg, transparent 75%, #666666 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  background-color: #444444;
 }
 
 .toolbar {
   width: 100%;
-  height: 320rpx; /* 使用 rpx 单位 */
+  height: 380rpx; /* 增加高度以适应透明背景开关 */
   background-color: #444;
   display: flex;
   flex-direction: column;
@@ -120,6 +132,30 @@
 .size-large {
   width: 14px;
   height: 14px;
+}
+
+/* 透明背景开关区域 */
+.background-toggle {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.toggle-label {
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.toggle-hint {
+  color: #39C5BB;
+  font-size: 10px;
+  min-width: 30px;
 }
 
 .action-buttons {

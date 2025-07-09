@@ -93,7 +93,7 @@ Page({
         this.animationController = rootStore.initAnimationController(
           canvasWidth,
           canvasHeight,
-          this.data.canvasBackground
+          rootStore.getCurrentBackgroundColor()
         );
 
         // 设置Canvas层
@@ -227,6 +227,19 @@ Page({
     rootStore.setBrushSize(size);
     console.log(`画笔大小切换为: ${size} (${rootStore.getCurrentBrushSize()}px)`);
   },
+
+  // 切换透明背景
+  toggleTransparentBackground: function (e) {
+    const isTransparent = e.detail.value;
+    rootStore.setTransparentBackground(isTransparent);
+
+    // 重新渲染画布以应用新的背景设置
+    if (this.animationController) {
+      this.animationController.renderAllPixels();
+    }
+
+    console.log(`透明背景已${isTransparent ? '开启' : '关闭'}`);
+  },
   
   // 清空画布
   clearCanvas: function () {
@@ -240,14 +253,20 @@ Page({
       wx.showToast({ title: '画布未初始化', icon: 'none' });
       return;
     }
-    
+
+    // 检查是否有透明背景
+    const isTransparent = rootStore.getTransparentBackground();
+
     wx.canvasToTempFilePath({
       canvas: this.canvas,
+      fileType: 'png', // 使用PNG格式支持透明度
+      quality: 1.0, // 最高质量
       success: (res) => {
         wx.saveImageToPhotosAlbum({
           filePath: res.tempFilePath,
           success: () => {
-            wx.showToast({ title: '保存成功', icon: 'success' });
+            const message = isTransparent ? '透明PNG保存成功' : '图片保存成功';
+            wx.showToast({ title: message, icon: 'success' });
           },
           fail: (err) => {
             console.error('保存失败', err);
@@ -257,6 +276,7 @@ Page({
       },
       fail: (err) => {
         console.error('生成图片失败', err);
+        wx.showToast({ title: '生成图片失败', icon: 'none' });
       }
     });
   },

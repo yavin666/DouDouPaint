@@ -38,8 +38,15 @@ async function captureFramesForGif(page, frames = 10, delay = 200) {
       });
 
       // 清除画布并绘制当前帧
-      page.ctx.fillStyle = page.data.canvasBackground;
-      page.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      const backgroundColor = rootStore.getCurrentBackgroundColor();
+      if (backgroundColor === 'transparent') {
+        // 透明背景：清除画布
+        page.ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      } else {
+        // 非透明背景：填充背景色
+        page.ctx.fillStyle = backgroundColor;
+        page.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
 
       // 绘制所有像素
       activePixels.forEach(pixel => {
@@ -103,11 +110,16 @@ async function generateGif(frameDataList, options = {}) {
   }
 
   const firstFrame = frameDataList[0];
+
+  // 检查是否需要透明背景
+  const isTransparent = rootStore.getTransparentBackground();
+
   const gif = new GIF({
     workers: 1, // 小程序只支持一个worker
     width: firstFrame.width,
     height: firstFrame.height,
     debug: false,
+    transparent: isTransparent ? 0x00000000 : null, // 设置透明色
     ...options
   });
 

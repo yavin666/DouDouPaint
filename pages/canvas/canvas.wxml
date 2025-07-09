@@ -1,7 +1,7 @@
 <!--pages/canvas/canvas.wxml-->
 <view class="container" catchtouchmove="preventPageScroll">
   <canvas type="2d" id="myCanvas"
-    class="main-canvas"
+    class="main-canvas {{isTransparentBackground ? 'transparent-bg' : ''}}"
     bindtouchstart="touchStart"
     bindtouchmove="touchMove"
     bindtouchend="touchEnd"
@@ -40,10 +40,20 @@
       </view>
     </view>
 
+    <!-- 透明背景开关 -->
+    <view class="background-toggle">
+      <text class="section-title">背景设置</text>
+      <view class="toggle-container">
+        <text class="toggle-label">透明背景</text>
+        <switch checked="{{isTransparentBackground}}" bindchange="toggleTransparentBackground" color="#39C5BB"/>
+        <text class="toggle-hint">{{isTransparentBackground ? '透明' : '白色'}}</text>
+      </view>
+    </view>
+
     <!-- 操作按钮 -->
     <view class="action-buttons">
       <button bindtap="clearCanvas">清空</button>
-      <button bindtap="saveImage">保存图片</button>
+      <button bindtap="saveImage">{{isTransparentBackground ? '保存透明PNG' : '保存图片'}}</button>
       <button bindtap="saveAsGif">保存GIF</button>
     </view>
   </view>
