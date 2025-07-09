@@ -63,15 +63,14 @@ class optimizedAnimationController {
   setupReactions() {
     console.log('设置 MobX 6.x 响应式监听')
 
-    // 监听活跃像素变化，自动启动/停止动画
+    // 监听活跃像素变化，自动启动动画（永不停止）
     this.activePixelsReaction = reaction(
       () => this.pixelStore.activePixels.size,
       (activePixelCount) => {
-        console.log(`活跃像素数量变化: ${activePixelCount}`)
         if (activePixelCount > 0 && !this.isAnimating) {
           this.startAnimation()
         }
-        // 保持持续动画，不在像素为0时停止
+        // 保持持续动画，永不停止
       }
     )
 
@@ -135,15 +134,10 @@ class optimizedAnimationController {
    * 渲染所有像素（简化版本）
    */
   renderAllPixels() {
-    if (!this.displayCtx) {
-      console.warn('displayCtx 未设置，无法渲染')
-      return
-    }
+    if (!this.displayCtx) return
 
     // 清除画布
     this.clearMainCanvas()
-
-    console.log(`渲染像素 - 静态: ${this.pixelStore.staticPixels.size}, 活跃: ${this.pixelStore.activePixels.size}`)
 
     // 先绘制静态像素
     for (const [, pixel] of this.pixelStore.staticPixels) {
@@ -152,7 +146,6 @@ class optimizedAnimationController {
 
     // 再绘制活跃像素
     for (const [, pixel] of this.pixelStore.activePixels) {
-      console.log('绘制活跃像素:', pixel)
       pixel.draw(this.displayCtx)
     }
   }

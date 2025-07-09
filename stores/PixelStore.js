@@ -121,24 +121,12 @@ class PixelStore {
    * 更新活跃像素（动画帧更新）
    */
   updateActivePixels() {
-    const now = Date.now()
-    const pixelsToStaticize = []
-    
-    // 更新所有活跃像素的帧
-    for (const [id, pixel] of this.activePixels) {
+    // 更新所有活跃像素的帧，保持永久抖动
+    for (const [, pixel] of this.activePixels) {
       pixel.update()
-      
-      // 检查是否需要静态化
-      if (now - pixel.createdAt > this.config.pixelLifetime) {
-        pixelsToStaticize.push(id)
-      }
     }
-    
-    // 将过期像素移动到静态层
-    pixelsToStaticize.forEach(id => {
-      this.moveToStatic(id)
-    })
-    
+
+    // 不再将像素移动到静态层，所有像素保持抖动
     this.updateStats()
   }
   

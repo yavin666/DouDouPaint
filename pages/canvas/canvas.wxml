@@ -1,7 +1,7 @@
 <!--pages/canvas/canvas.wxml-->
 <view class="container" catchtouchmove="preventPageScroll">
-  <canvas type="2d" id="myCanvas" 
-    style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
+  <canvas type="2d" id="myCanvas"
+    class="main-canvas"
     bindtouchstart="touchStart"
     bindtouchmove="touchMove"
     bindtouchend="touchEnd"

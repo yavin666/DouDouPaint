@@ -12,29 +12,30 @@
   padding: 0;
 }
 
-canvas {
-  border: 1px solid #cccccc;
+.main-canvas {
+  border: 2rpx solid #cccccc;
   background-color: #FFFFFF;
   margin: 0;
-  display: block; /* 确保canvas正确显示 */
-  touch-action: none; /* 禁止默认触摸行为 */
-  width: 100% !important; /* 确保宽度填满容器 */
-  flex: 1; /* 让画布占据剩余空间 */
+  display: block;
+  touch-action: none;
+  width: 750rpx; /* 使用 rpx 单位，自动适配不同屏幕 */
+  height: calc(100vh - 320rpx); /* 减去工具栏高度 */
+  flex: 1;
 }
 
 .toolbar {
   width: 100%;
-  height: 160px; /* 增加高度以容纳画笔大小控件 */
+  height: 320rpx; /* 使用 rpx 单位 */
   background-color: #444;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-around;
-  padding: 8px;
+  padding: 16rpx;
   box-sizing: border-box;
-  position: relative; /* 确保工具栏正确定位 */
-  z-index: 10; /* 确保工具栏在画布上方 */
-  flex-shrink: 0; /* 防止工具栏被压缩 */
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .pen-buttons {
