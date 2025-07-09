@@ -2,15 +2,15 @@
 const { createStoreBindings } = require('mobx-miniprogram-bindings')
 const { rootStore } = require('../../stores/rootStore')
 const { getRandomShape } = require('../../utils/shapes')
-const { captureFramesForGif, saveFrameImages } = require('../../utils/gifExport')
+const { exportGif, saveGifToAlbum } = require('../../utils/gifExport')
 
 Page({
   data: {
     currentPen: 'pencil',
     pens: {
       pencil: { color: '#000000', width: 2, audio: '/static/sounds/clip.mp3' },
-      marker: { color: '#333333', width: 4, audio: '/static/sounds/clip.mp3' },
-      glow: { color: '#ffffff', width: 3, audio: '/static/sounds/clip.mp3' }
+      marker: { color: '#39C5BB', width: 4, audio: '/static/sounds/clip.mp3' },
+      glow: { color: '#ffffff', width: 6, audio: '/static/sounds/clip.mp3' }
     },
     lastX: 0,
     lastY: 0,
@@ -201,11 +201,6 @@ Page({
       this.animationController.startAnimation();
     }
 
-    // 每100个像素输出一次性能信息
-    if (rootStore.pixelStore.totalPixelCount % 100 === 0) {
-      this.logPerformance();
-    }
-    
     // 只有在需要检查音频条件时才执行
     if (checkAudio) {
       // 控制音频播放频率
@@ -270,21 +265,77 @@ Page({
       wx.showToast({ title: '画布未初始化', icon: 'none' });
       return;
     }
-    
-    wx.showLoading({ title: '正在生成GIF...' });
-    
-    try {
-      // 捕获多帧
-      const frameFiles = await captureFramesForGif(this, 3);
-      wx.hideLoading();
-      
-      // 保存帧图像
-      await saveFrameImages(frameFiles);
-    } catch (error) {
-      wx.hideLoading();
-      console.error('GIF导出失败', error);
-      wx.showToast({ title: '导出失败', icon: 'none' });
+
+    // 检查是否有绘制内容 - 通过rootStore访问pixelStore
+    if (!rootStore.pixelStore.activePixels || rootStore.pixelStore.activePixels.size === 0) {
+      wx.showToast({ title: '请先绘制一些内容', icon: 'none' });
+      return;
     }
+
+    try {
+      // 显示配置选择对话框
+      const options = await this.showGifOptions();
+      if (!options) return; // 用户取消
+
+      // 导出GIF
+      const gifPath = await exportGif(this, options);
+
+      // 保存或分享GIF
+      await saveGifToAlbum(gifPath);
+
+    } catch (error) {
+      console.error('GIF导出失败', error);
+      wx.showToast({
+        title: error.message || '导出失败',
+        icon: 'none',
+        duration: 2000
+      });
+    }
+  },
+
+  // 显示GIF配置选项
+  showGifOptions: function() {
+    return new Promise((resolve) => {
+      wx.showActionSheet({
+        itemList: ['快速导出(5帧)', '标准导出(10帧)', '高质量导出(15帧)', '自定义设置'],
+        success: (res) => {
+          const options = [
+            { frames: 5, delay: 300, quality: 15 },   // 快速
+            { frames: 10, delay: 200, quality: 10 },  // 标准
+            { frames: 15, delay: 150, quality: 8 },   // 高质量
+            null // 自定义
+          ];
+
+          if (res.tapIndex === 3) {
+            // 自定义设置
+            this.showCustomGifOptions().then(resolve);
+          } else {
+            resolve(options[res.tapIndex]);
+          }
+        },
+        fail: () => resolve(null)
+      });
+    });
+  },
+
+  // 显示自定义GIF设置
+  showCustomGifOptions: function() {
+    return new Promise((resolve) => {
+      // 简化版本，使用默认设置
+      wx.showModal({
+        title: '自定义GIF设置',
+        content: '帧数: 12帧\n延迟: 180ms\n质量: 中等',
+        confirmText: '确定',
+        cancelText: '取消',
+        success: (res) => {
+          if (res.confirm) {
+            resolve({ frames: 12, delay: 180, quality: 10 });
+          } else {
+            resolve(null);
+          }
+        }
+      });
+    });
   },
   
   /**

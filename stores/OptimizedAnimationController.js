@@ -19,7 +19,7 @@ class OptimizedAnimationController {
     this.isAnimating = false
     this.animationId = null
     this.lastFrameTime = 0
-    this.targetFPS = 30
+    this.targetFPS = 15 // 降低到15fps，减少CPU占用
     this.frameInterval = 1000 / this.targetFPS
     
     // 性能优化
@@ -90,31 +90,31 @@ class OptimizedAnimationController {
   }
   
   /**
-   * 动画循环
+   * 动画循环（使用 setTimeout 适配微信小程序）
    */
   animate() {
     try {
       const now = Date.now()
-      
+
       // 节流渲染
       if (now - this.lastRenderTime < this.renderThrottle) {
         if (this.isAnimating) {
-          this.animationId = requestAnimationFrame(() => this.animate())
+          this.animationId = setTimeout(() => this.animate(), this.frameInterval)
         }
         return
       }
-      
+
       this.lastRenderTime = now
-      
+
       // 更新所有活跃像素
       this.pixelStore.updateActivePixels()
-      
+
       // 渲染所有像素
       this.renderAllPixels()
-      
+
       // 继续动画循环
       if (this.isAnimating) {
-        this.animationId = requestAnimationFrame(() => this.animate())
+        this.animationId = setTimeout(() => this.animate(), this.frameInterval)
       }
     } catch (error) {
       console.error('动画循环错误:', error)
