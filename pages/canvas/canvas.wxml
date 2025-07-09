@@ -1,0 +1,25 @@
+<!--pages/canvas/canvas.wxml-->
+<view class="container" catchtouchmove="preventPageScroll">
+  <canvas type="2d" id="myCanvas" 
+    style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
+    bindtouchstart="touchStart"
+    bindtouchmove="touchMove"
+    bindtouchend="touchEnd"
+    disable-scroll="true">
+  </canvas>
+  <view class="toolbar">
+    <view class="pen-buttons">
+      <view class="pen-button {{currentPen === 'pencil' ? 'active' : ''}}" 
+        bindtap="changePen" data-pen="pencil">铅笔</view>
+      <view class="pen-button {{currentPen === 'marker' ? 'active' : ''}}" 
+        bindtap="changePen" data-pen="marker">马克笔</view>
+      <view class="pen-button {{currentPen === 'glow' ? 'active' : ''}}" 
+        bindtap="changePen" data-pen="glow">荧光笔</view>
+    </view>
+    <view class="action-buttons">
+      <button bindtap="clearCanvas">清空</button>
+      <button bindtap="saveImage">保存图片</button>
+      <button bindtap="saveAsGif">保存GIF</button>
+    </view>
+  </view>
+</view>

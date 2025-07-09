@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "pages/canvas/canvas"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#333333",
+    "navigationBarTitleText": "抖抖画板",
+    "navigationBarTextStyle": "white"
+  },
+  "renderer": "webview",
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}
