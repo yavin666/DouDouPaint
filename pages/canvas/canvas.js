@@ -1,9 +1,11 @@
 // pages/canvas/canvas.js
-import WigglePixel, { AnimationController } from '../../utils/animation';
-import { getRandomShape } from '../../utils/shapes';
-import { captureFramesForGif, saveFrameImages } from '../../utils/gifExport';
+import { storeBindingsBehavior } from 'mobx-miniprogram-bindings'
+import { rootStore } from '../../stores/RootStore'
+import { getRandomShape } from '../../utils/shapes'
+import { captureFramesForGif, saveFrameImages } from '../../utils/gifExport'
 
 Page({
+  behaviors: [storeBindingsBehavior],
   data: {
     canvasWidth: 0,
     canvasHeight: 0,
@@ -19,16 +21,33 @@ Page({
     lastY: 0,
     isDrawing: false,
     canvasBackground: '#FFFFFF',
-    pixelSpacing: 2, // 像素间距
+    pixelSpacing: 4, // 像素间距（增加间距减少像素密度）
     canvasLeft: 0,  // 画布左边距
     canvasTop: 0,   // 画布上边距
     pixelRatio: 1,  // 设备像素比
     audioCounter: 0,  // 音频播放计数器
-    audioInterval: 5,  // 音频播放间隔（每隔多少个像素播放一次）
+    audioInterval: 10,  // 音频播放间隔（增加间隔减少音频播放频率）
     lastAudioTime: 0,  // 上次播放音频的时间戳
     audioTimeInterval: 300  // 音频播放的最小时间间隔（毫秒）
   },
   onLoad: function () {
+    console.log('=== 使用MobX优化版本启动 ===')
+
+    // 在onLoad中设置storeBindings，避免警告
+    this.storeBindings = {
+      store: rootStore,
+      fields: {
+        totalPixels: () => rootStore.pixelStore.totalPixelCount,
+        activePixels: () => rootStore.pixelStore.stats.activeCount,
+        staticPixels: () => rootStore.pixelStore.stats.staticCount,
+        fps: () => rootStore.pixelStore.stats.fps
+      },
+      actions: {
+        addPixel: 'addPixel',
+        clearAllPixels: 'clearAllPixels'
+      }
+    };
+
     this.initCanvas();
   },
 
@@ -37,11 +56,25 @@ Page({
    * 获取设备信息，设置画布大小，创建上下文
    */
   initCanvas() {
-    // 获取设备信息以设置画布大小
-    const info = wx.getSystemInfoSync();
-    const pixelRatio = info.pixelRatio;
-    const windowHeight = info.windowHeight;
-    const windowWidth = info.windowWidth;
+    // 使用新API获取设备信息
+    let pixelRatio = 1;
+    let windowHeight = 667;
+    let windowWidth = 375;
+
+    try {
+      if (typeof wx.getWindowInfo === 'function') {
+        const windowInfo = wx.getWindowInfo();
+        windowHeight = windowInfo.windowHeight || 667;
+        windowWidth = windowInfo.windowWidth || 375;
+      }
+
+      if (typeof wx.getDeviceInfo === 'function') {
+        const deviceInfo = wx.getDeviceInfo();
+        pixelRatio = deviceInfo.pixelRatio || 1;
+      }
+    } catch (error) {
+      console.warn('获取设备信息失败，使用默认值:', error);
+    }
     
     // 计算画布高度（减去工具栏高度）
     const toolbarHeight = 120;
@@ -85,17 +118,21 @@ Page({
         // 保存canvas和ctx引用
         this.canvas = canvas;
         this.ctx = ctx;
-        
-        // 初始化动画控制器
-        this.animationController = new AnimationController(
-          ctx, 
-          this.data.canvasWidth, 
+
+        // 初始化MobX优化的动画控制器
+        this.animationController = rootStore.initAnimationController(
+          this.data.canvasWidth,
           this.data.canvasHeight,
           this.data.canvasBackground
         );
-        
+
+        // 设置Canvas层
+        rootStore.setupCanvasLayers(canvas, ctx);
+
         // 设置背景色
         this.clearCanvas();
+
+        console.log('MobX动画控制器初始化完成');
       });
   },
   
@@ -169,10 +206,9 @@ Page({
       this.placePixel(px, py, shouldPlayAudio);
     }
     
-    this.setData({
-      lastX: x,
-      lastY: y
-    });
+    // 直接更新内部变量，避免频繁的 setData 调用
+    this.data.lastX = x;
+    this.data.lastY = y;
   },
   
   // 结束绘画
@@ -188,12 +224,16 @@ Page({
    */
   placePixel(x, y, checkAudio = true) {
     if (!this.ctx || !this.animationController) return;
-    
+
     const pen = this.data.pens[this.data.currentPen];
-    const pixel = new WigglePixel(x, y, pen.color, getRandomShape());
-    
-    // 添加到动画控制器
-    this.animationController.addPixel(pixel);
+
+    // 使用MobX Store添加像素
+    const pixelId = rootStore.addPixel(x, y, pen.color, getRandomShape());
+
+    // 每100个像素输出一次性能信息
+    if (rootStore.pixelStore.totalPixelCount % 100 === 0) {
+      this.logPerformance();
+    }
     
     // 只有在需要检查音频条件时才执行
     if (checkAudio) {
@@ -215,8 +255,8 @@ Page({
   
   // 清空画布
   clearCanvas: function () {
-    if (!this.animationController) return;
-    this.animationController.clearPixels();
+    rootStore.clearAllPixels();
+    console.log('画布已清空');
   },
   
   // 保存图片
@@ -295,5 +335,31 @@ Page({
     wx.vibrateShort({
       type: 'light'
     });
+  },
+
+  // 性能监控（调试用）
+  logPerformance: function() {
+    const report = rootStore.getPerformanceReport();
+    console.log('=== 性能报告 ===');
+    console.log(`总像素: ${report.totalPixels}`);
+    console.log(`活跃像素: ${report.activePixels}`);
+    console.log(`静态像素: ${report.staticPixels}`);
+    console.log(`FPS: ${report.fps}`);
+    console.log(`脏区域: ${report.dirtyRegions || 0}`);
+    console.log('================');
+
+    // 性能警告
+    if (report.activePixels > 250) {
+      console.warn('活跃像素数量较高，可能影响性能');
+    }
+    if (report.totalPixels > 1500) {
+      console.warn('总像素数量较高，注意内存使用');
+    }
+  },
+
+  // 页面卸载时清理资源
+  onUnload: function() {
+    console.log('页面卸载，清理MobX资源');
+    rootStore.destroy();
   }
 });

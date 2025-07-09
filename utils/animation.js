@@ -59,6 +59,7 @@ export class AnimationController {
     this.activePixels = [];
     this.animationTimer = null;
     this.frameRate = 100; // 毫秒
+    this.maxPixels = 500; // 限制最大像素数量，防止卡死
   }
 
   /**
@@ -66,6 +67,12 @@ export class AnimationController {
    * @param {WigglePixel} pixel - 抖动像素对象
    */
   addPixel(pixel) {
+    // 限制像素数量，防止内存溢出和性能问题
+    if (this.activePixels.length >= this.maxPixels) {
+      // 移除最老的像素（FIFO队列）
+      this.activePixels.shift();
+    }
+
     this.activePixels.push(pixel);
     if (this.activePixels.length === 1) {
       this.startAnimation();

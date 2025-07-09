@@ -5,7 +5,7 @@
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#333333",
-    "navigationBarTitleText": "抖抖画板",
+    "navigationBarTitleText": "抖抖画",
     "navigationBarTextStyle": "white"
   },
   "renderer": "webview",

@@ -1,0 +1,22 @@
+{
+  "name": "doudou-paint",
+  "version": "1.0.0",
+  "description": "抖动线条复古画板微信小程序",
+  "main": "app.js",
+  "dependencies": {
+    "mobx-miniprogram": "^4.13.2",
+    "mobx-miniprogram-bindings": "^1.2.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "miniprogram",
+    "canvas",
+    "paint",
+    "animation"
+  ],
+  "author": "",
+  "license": "MIT"
+}
