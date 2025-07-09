@@ -15,9 +15,8 @@ class WigglePixel {
    * @param {number} size - 画笔大小（像素块尺寸）
    * @param {number} opacity - 透明度 (0-1)
    * @param {string} penType - 画笔类型 (pencil/marker/glow)
-   * @param {number} zIndex - 层级 (数值越大越在上层)
    */
-  constructor(x, y, color, frameData, size = 2, opacity = 1, penType = 'pencil', zIndex = 0) {
+  constructor(x, y, color, frameData, size = 2, opacity = 1, penType = 'pencil') {
     this.x = x;
     this.y = y;
     this.color = color;
@@ -26,7 +25,6 @@ class WigglePixel {
     this.size = size; // 画笔大小，默认2x2像素
     this.opacity = opacity; // 透明度
     this.penType = penType; // 画笔类型
-    this.zIndex = zIndex; // 层级
   }
   
   /**

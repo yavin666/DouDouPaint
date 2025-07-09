@@ -24,10 +24,10 @@ class RootStore {
       currentPen: 'pencil',
       currentBrushSize: 'medium', // 当前画笔大小
       pens: {
-        pencil: { color: '#000000', width: 2, opacity: 1.0, zIndex: 3 },
-        marker: { color: '#333333', width: 4, opacity: 0.8, zIndex: 2 },
-        glow: { color: '#ffffff', width: 3, opacity: 0.5, zIndex: 1 },
-        eraser: { color: 'transparent', width: 6, opacity: 1.0, zIndex: 4, isEraser: true }
+        pencil: { color: '#000000', width: 2, opacity: 1.0 },
+        marker: { color: '#333333', width: 4, opacity: 0.8 },
+        glow: { color: '#ffffff', width: 3, opacity: 0.5 },
+        eraser: { color: 'transparent', width: 6, opacity: 1.0, isEraser: true }
       },
       brushSizes: {
         small: { size: 2, spacing: 4, label: '小' },
@@ -62,7 +62,7 @@ class RootStore {
    */
   addPixel(x, y, color, frameData, size, penType = 'pencil') {
     const penConfig = this.drawingConfig.pens[penType] || this.drawingConfig.pens.pencil
-    return this.pixelStore.addPixel(x, y, color, frameData, size, penConfig.opacity, penType, penConfig.zIndex)
+    return this.pixelStore.addPixel(x, y, color, frameData, size, penConfig.opacity, penType)
   }
 
   /**

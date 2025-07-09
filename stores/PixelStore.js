@@ -8,8 +8,13 @@ const { WigglePixel } = require('../utils/animation')
  */
 class PixelStore {
   constructor() {
-    // 像素存储 - 只保留活跃像素，所有像素永久抖动
-    this.activePixels = new Map() // 活跃像素（正在抖动）
+    // 像素存储 - 按画笔类型分层存储，控制绘制顺序
+    this.pixelLayers = {
+      glow: new Map(),      // 荧光笔层（最底层）
+      marker: new Map(),    // 马克笔层（中间层）
+      pencil: new Map()     // 铅笔层（最上层）
+    }
+    this.activePixels = new Map() // 所有活跃像素的引用（用于统一管理）
     this.totalPixelCount = 0 // 总像素计数器
     
     // 配置
@@ -35,9 +40,8 @@ class PixelStore {
    * @param {Object} brushConfig - 画笔配置
    * @param {number} opacity - 透明度
    * @param {string} penType - 画笔类型
-   * @param {number} zIndex - 层级
    */
-  addPixel(x, y, color, frameData, brushConfig, opacity = 1, penType = 'pencil', zIndex = 0) {
+  addPixel(x, y, color, frameData, brushConfig, opacity = 1, penType = 'pencil') {
     // 检查是否超过最大像素限制
     if (this.totalPixelCount >= this.config.maxTotalPixels) {
       this.removeOldestPixel()
@@ -54,8 +58,7 @@ class PixelStore {
       frameData,
       brushConfig.size || 2,
       opacity,
-      penType,
-      zIndex
+      penType
     )
     
     // 添加像素元数据
