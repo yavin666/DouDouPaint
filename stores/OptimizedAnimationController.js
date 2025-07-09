@@ -1,10 +1,11 @@
-import { reaction } from 'mobx-miniprogram'
+// 暂时移除 reaction，使用简化的监听方式
+// import { reaction } from 'mobx-miniprogram'
 
 /**
  * 优化的动画控制器
  * 使用MobX响应式更新和分层渲染
  */
-export class OptimizedAnimationController {
+class OptimizedAnimationController {
   constructor(pixelStore, canvasWidth, canvasHeight, backgroundColor = '#FFFFFF') {
     this.pixelStore = pixelStore
     this.canvasWidth = canvasWidth
@@ -58,41 +59,11 @@ export class OptimizedAnimationController {
   }
 
   /**
-   * 设置MobX响应式更新
+   * 设置简化的监听（不使用 reaction）
    */
   setupReactions() {
-    // 监听静态像素变化
-    this.staticPixelsReaction = reaction(
-      () => Array.from(this.pixelStore.staticPixels.values()),
-      (staticPixels) => {
-        console.log(`静态像素更新: ${staticPixels.length}个`)
-        this.renderStaticLayer()
-      }
-    )
-    
-    // 监听活跃像素变化（持续动画版本）
-    this.activePixelsReaction = reaction(
-      () => Array.from(this.pixelStore.activePixels.values()),
-      (activePixels) => {
-        if (activePixels.length > 0 && !this.isAnimating) {
-          this.startAnimation()
-        }
-        // 移除停止动画的逻辑，让动画持续运行
-        // 即使没有像素也保持动画循环，为新像素做准备
-      }
-    )
-    
-    // 监听脏区域变化（用于优化重绘）
-    if (this.enableDirtyRegionOptimization) {
-      this.dirtyRegionsReaction = reaction(
-        () => this.pixelStore.optimizedDirtyRegions.slice(),
-        (dirtyRegions) => {
-          if (dirtyRegions.length > 0) {
-            this.renderDirtyRegions(dirtyRegions)
-          }
-        }
-      )
-    }
+    // 简化版本：直接在动画循环中检查变化
+    console.log('使用简化的监听模式')
   }
 
   /**
@@ -127,7 +98,7 @@ export class OptimizedAnimationController {
     this.clearStaticLayer()
     
     // 绘制所有静态像素
-    for (const [id, pixel] of this.pixelStore.staticPixels) {
+    for (const [, pixel] of this.pixelStore.staticPixels) {
       pixel.draw(this.staticCtx)
     }
     
@@ -238,17 +209,7 @@ export class OptimizedAnimationController {
    */
   destroy() {
     this.stopAnimation()
-    
-    // 清理MobX reactions
-    if (this.staticPixelsReaction) {
-      this.staticPixelsReaction()
-    }
-    if (this.activePixelsReaction) {
-      this.activePixelsReaction()
-    }
-    if (this.dirtyRegionsReaction) {
-      this.dirtyRegionsReaction()
-    }
+    console.log('动画控制器已销毁')
   }
 
   /**
@@ -264,3 +225,5 @@ export class OptimizedAnimationController {
     }
   }
 }
+
+module.exports = { OptimizedAnimationController }

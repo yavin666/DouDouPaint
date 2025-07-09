@@ -1,11 +1,10 @@
 // pages/canvas/canvas.js
-import { storeBindingsBehavior } from 'mobx-miniprogram-bindings'
-import { rootStore } from '../../stores/RootStore'
-import { getRandomShape } from '../../utils/shapes'
-import { captureFramesForGif, saveFrameImages } from '../../utils/gifExport'
+const { createStoreBindings } = require('mobx-miniprogram-bindings')
+const { rootStore } = require('../../stores/rootStore')
+const { getRandomShape } = require('../../utils/shapes')
+const { captureFramesForGif, saveFrameImages } = require('../../utils/gifExport')
 
 Page({
-  behaviors: [storeBindingsBehavior],
   data: {
     canvasWidth: 0,
     canvasHeight: 0,
@@ -21,7 +20,7 @@ Page({
     lastY: 0,
     isDrawing: false,
     canvasBackground: '#FFFFFF',
-    pixelSpacing: 4, // 像素间距（增加间距减少像素密度）
+    pixelSpacing: 4, // 像素间距（会根据画笔大小动态调整）
     canvasLeft: 0,  // 画布左边距
     canvasTop: 0,   // 画布上边距
     pixelRatio: 1,  // 设备像素比
@@ -33,20 +32,23 @@ Page({
   onLoad: function () {
     console.log('=== 使用MobX优化版本启动 ===')
 
-    // 在onLoad中设置storeBindings，避免警告
-    this.storeBindings = {
+    // 使用新的 MobX 6.x 绑定方式
+    this.storeBindings = createStoreBindings(this, {
       store: rootStore,
       fields: {
         totalPixels: () => rootStore.pixelStore.totalPixelCount,
         activePixels: () => rootStore.pixelStore.stats.activeCount,
         staticPixels: () => rootStore.pixelStore.stats.staticCount,
-        fps: () => rootStore.pixelStore.stats.fps
+        fps: () => rootStore.pixelStore.stats.fps,
+        currentBrushSize: () => rootStore.drawingConfig.currentBrushSize,
+        brushSizes: () => rootStore.drawingConfig.brushSizes
       },
       actions: {
         addPixel: 'addPixel',
-        clearAllPixels: 'clearAllPixels'
+        clearAllPixels: 'clearAllPixels',
+        setBrushSize: 'setBrushSize'
       }
-    };
+    });
 
     this.initCanvas();
   },
@@ -76,9 +78,9 @@ Page({
       console.warn('获取设备信息失败，使用默认值:', error);
     }
     
-    // 计算画布高度（减去工具栏高度）
-    const toolbarHeight = 120;
-    const canvasHeight = windowHeight - toolbarHeight;
+    // 计算画布高度（减去工具栏高度，工具栏现在是160px）
+    const toolbarHeight = 160;
+    const canvasHeight = Math.max(200, windowHeight - toolbarHeight);
     
     this.setData({
       canvasWidth: windowWidth,
@@ -183,7 +185,9 @@ Page({
     const x = touch.pageX - this.data.canvasLeft;
     const y = touch.pageY - this.data.canvasTop;
     
-    const { lastX, lastY, pixelSpacing } = this.data;
+    // 根据当前画笔大小获取像素间距
+    const pixelSpacing = rootStore.getCurrentPixelSpacing();
+    const { lastX, lastY } = this.data;
     
     // 计算距离和步数，实现平滑绘制
     const dx = x - lastX;
@@ -226,9 +230,15 @@ Page({
     if (!this.ctx || !this.animationController) return;
 
     const pen = this.data.pens[this.data.currentPen];
+    const brushSize = rootStore.getCurrentBrushSize();
 
-    // 使用MobX Store添加像素
-    const pixelId = rootStore.addPixel(x, y, pen.color, getRandomShape());
+    // 使用MobX Store添加像素（包含画笔大小）
+    rootStore.addPixel(x, y, pen.color, getRandomShape(), brushSize);
+
+    // 确保动画循环启动
+    if (!this.animationController.isAnimating) {
+      this.animationController.startAnimation();
+    }
 
     // 每100个像素输出一次性能信息
     if (rootStore.pixelStore.totalPixelCount % 100 === 0) {
@@ -251,6 +261,13 @@ Page({
   changePen: function (e) {
     const pen = e.currentTarget.dataset.pen;
     this.setData({ currentPen: pen });
+  },
+
+  // 切换画笔大小
+  changeBrushSize: function (e) {
+    const size = e.currentTarget.dataset.size;
+    rootStore.setBrushSize(size);
+    console.log(`画笔大小切换为: ${size} (${rootStore.getCurrentBrushSize()}px)`);
   },
   
   // 清空画布
@@ -312,9 +329,8 @@ Page({
   /**
    * 播放音效
    * 添加时间间隔控制，避免音频播放过于频繁
-   * @param {string} audioFile - 音频文件路径（当前已统一使用clip.mp3）
    */
-  playAudio: function (audioFile) {
+  playAudio: function () {
     const currentTime = Date.now();
     const timeSinceLastAudio = currentTime - this.data.lastAudioTime;
     
@@ -360,6 +376,13 @@ Page({
   // 页面卸载时清理资源
   onUnload: function() {
     console.log('页面卸载，清理MobX资源');
+
+    // 清理 MobX 绑定
+    if (this.storeBindings) {
+      this.storeBindings.destroyStoreBindings();
+    }
+
+    // 清理动画控制器
     rootStore.destroy();
   }
 });

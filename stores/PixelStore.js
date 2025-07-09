@@ -1,4 +1,4 @@
-import { observable, action, computed, runInAction } from 'mobx-miniprogram'
+const { makeAutoObservable } = require('mobx-miniprogram')
 
 /**
  * 像素生命周期状态
@@ -42,7 +42,7 @@ class DirtyRegion {
  * 增强的像素类
  */
 class EnhancedPixel {
-  constructor(x, y, color, frameData, id) {
+  constructor(x, y, color, frameData, id, size = 2) {
     this.id = id
     this.x = x
     this.y = y
@@ -53,6 +53,7 @@ class EnhancedPixel {
     this.createdAt = Date.now()
     this.lastUpdateAt = Date.now()
     this.animationDuration = 3000 // 3秒后转为静态
+    this.size = size // 画笔大小，默认2x2像素
   }
 
   update() {
@@ -68,22 +69,30 @@ class EnhancedPixel {
   draw(ctx) {
     ctx.fillStyle = this.color
     this.frameData[this.currentFrame].forEach(([dx, dy]) => {
-      ctx.fillRect(this.x + dx, this.y + dy, 1, 1)
+      // 根据画笔大小绘制像素块
+      ctx.fillRect(
+        this.x + dx * this.size,
+        this.y + dy * this.size,
+        this.size,
+        this.size
+      )
     })
   }
 
-  // 获取像素的边界框
+  // 获取像素的边界框（考虑画笔大小）
   getBounds() {
     let minX = this.x, maxX = this.x
     let minY = this.y, maxY = this.y
-    
+
     this.frameData[this.currentFrame].forEach(([dx, dy]) => {
-      minX = Math.min(minX, this.x + dx)
-      maxX = Math.max(maxX, this.x + dx)
-      minY = Math.min(minY, this.y + dy)
-      maxY = Math.max(maxY, this.y + dy)
+      const pixelX = this.x + dx * this.size
+      const pixelY = this.y + dy * this.size
+      minX = Math.min(minX, pixelX)
+      maxX = Math.max(maxX, pixelX + this.size)
+      minY = Math.min(minY, pixelY)
+      maxY = Math.max(maxY, pixelY + this.size)
     })
-    
+
     return { minX, minY, maxX, maxY }
   }
 }
@@ -91,36 +100,39 @@ class EnhancedPixel {
 /**
  * 像素存储和管理Store
  */
-export class PixelStore {
+class PixelStore {
   constructor() {
     // 活跃像素（正在动画）
-    this.activePixels = observable.map()
-    
+    this.activePixels = new Map()
+
     // 静态像素（不再动画）
-    this.staticPixels = observable.map()
-    
+    this.staticPixels = new Map()
+
     // 脏区域列表
-    this.dirtyRegions = observable.array()
-    
+    this.dirtyRegions = []
+
     // 配置参数
-    this.config = observable({
+    this.config = {
       maxActivePixels: 1500,   // 大幅增加活跃像素上限，支持更多抖动
       maxStaticPixels: 500,    // 减少静态像素，优先保持动画
       animationDuration: Infinity, // 永不停止动画！
       mergeDistance: 8,        // 像素合并距离阈值
       dirtyRegionPadding: 10   // 脏区域边距
-    })
-    
+    }
+
     // 性能统计
-    this.stats = observable({
+    this.stats = {
       totalPixels: 0,
       activeCount: 0,
       staticCount: 0,
       lastFrameTime: 0,
       fps: 0
-    })
-    
+    }
+
     this.pixelIdCounter = 0
+
+    // 使用 makeAutoObservable 让整个对象变为响应式
+    makeAutoObservable(this)
   }
 
   // 计算当前总像素数
@@ -170,9 +182,9 @@ export class PixelStore {
   /**
    * 添加新像素
    */
-  addPixel = action((x, y, color, frameData) => {
+  addPixel(x, y, color, frameData, size = 2) {
     const pixelId = ++this.pixelIdCounter
-    const pixel = new EnhancedPixel(x, y, color, frameData, pixelId)
+    const pixel = new EnhancedPixel(x, y, color, frameData, pixelId, size)
 
     // 检查是否需要合并相近的像素
     const nearbyPixel = this.findNearbyPixel(x, y)
@@ -197,7 +209,7 @@ export class PixelStore {
     this.updateStats()
 
     return pixelId
-  })
+  }
 
   /**
    * 查找附近的像素
@@ -233,7 +245,7 @@ export class PixelStore {
   /**
    * 更新像素
    */
-  updatePixel = action((pixelId, newPixelData) => {
+  updatePixel(pixelId, newPixelData) {
     const pixel = this.activePixels.get(pixelId)
     if (pixel) {
       const oldBounds = pixel.getBounds()
@@ -246,12 +258,12 @@ export class PixelStore {
       this.addDirtyRegion(oldBounds)
       this.addDirtyRegion(pixel.getBounds())
     }
-  })
+  }
 
   /**
    * 将最老的活跃像素转为静态
    */
-  promoteOldestActivePixel = action(() => {
+  promoteOldestActivePixel() {
     let oldestPixel = null
     let oldestTime = Date.now()
 
@@ -265,12 +277,12 @@ export class PixelStore {
     if (oldestPixel) {
       this.promoteToStatic(oldestPixel.id)
     }
-  })
+  }
 
   /**
    * 将活跃像素转为静态像素
    */
-  promoteToStatic = action((pixelId) => {
+  promoteToStatic(pixelId) {
     const pixel = this.activePixels.get(pixelId)
     if (!pixel) return
 
@@ -291,12 +303,12 @@ export class PixelStore {
     this.addDirtyRegion(pixel.getBounds())
 
     this.updateStats()
-  })
+  }
 
   /**
    * 移除最老的静态像素
    */
-  removeOldestStaticPixel = action(() => {
+  removeOldestStaticPixel() {
     let oldestPixel = null
     let oldestTime = Date.now()
 
@@ -312,12 +324,12 @@ export class PixelStore {
       this.staticPixels.delete(oldestPixel.id)
       this.updateStats()
     }
-  })
+  }
 
   /**
    * 添加脏区域（优化版本，减少重复区域）
    */
-  addDirtyRegion = action((bounds) => {
+  addDirtyRegion(bounds) {
     // 限制脏区域数量，避免过多
     if (this.dirtyRegions.length > 50) {
       this.dirtyRegions.clear()
@@ -347,19 +359,19 @@ export class PixelStore {
     if (!merged) {
       this.dirtyRegions.push(region)
     }
-  })
+  }
 
   /**
    * 清除脏区域
    */
-  clearDirtyRegions = action(() => {
-    this.dirtyRegions.clear()
-  })
+  clearDirtyRegions() {
+    this.dirtyRegions.length = 0
+  }
 
   /**
    * 更新所有活跃像素（持续动画版本）
    */
-  updateActivePixels = action(() => {
+  updateActivePixels() {
     // 批量处理像素更新，减少脏区域数量
     const batchBounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
     let hasChanges = false
@@ -385,12 +397,12 @@ export class PixelStore {
     if (hasChanges && batchBounds.minX !== Infinity) {
       this.addDirtyRegion(batchBounds)
     }
-  })
+  }
 
   /**
    * 清除所有像素
    */
-  clearAllPixels = action(() => {
+  clearAllPixels() {
     // 添加所有像素的脏区域
     for (const [id, pixel] of this.activePixels) {
       this.addDirtyRegion(pixel.getBounds())
@@ -402,12 +414,12 @@ export class PixelStore {
     this.activePixels.clear()
     this.staticPixels.clear()
     this.updateStats()
-  })
+  }
 
   /**
    * 更新性能统计
    */
-  updateStats = action(() => {
+  updateStats() {
     this.stats.activeCount = this.activePixels.size
     this.stats.staticCount = this.staticPixels.size
     this.stats.totalPixels = this.totalPixelCount
@@ -425,7 +437,7 @@ export class PixelStore {
       this.stats.fps = 0 // 首次调用
     }
     this.stats.lastFrameTime = now
-  })
+  }
 
   /**
    * 获取性能报告
@@ -469,3 +481,5 @@ export class PixelStore {
     return pixels
   }
 }
+
+module.exports = { PixelStore }

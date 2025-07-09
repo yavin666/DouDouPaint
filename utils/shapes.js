@@ -7,7 +7,7 @@
  * 加号形状的像素动画帧数据
  * 每个数组代表一帧，每帧包含多个[dx,dy]坐标偏移
  */
-export const PLUS_PIXEL = [
+const PLUS_PIXEL = [
   [
     // 第0帧
     [0, 0],
@@ -43,7 +43,7 @@ export const PLUS_PIXEL = [
 /**
  * 对角线形状的像素动画帧数据
  */
-export const DIAG_PIXEL = [
+const DIAG_PIXEL = [
   [
     // 第0帧
     [-1, 0],
@@ -82,7 +82,7 @@ export const DIAG_PIXEL = [
 /**
  * 反对角线形状的像素动画帧数据
  */
-export const REVERSE_DIAG_PIXEL = [
+const REVERSE_DIAG_PIXEL = [
   [
     // 第0帧
     [2, 1],
@@ -122,7 +122,14 @@ export const REVERSE_DIAG_PIXEL = [
  * 随机获取一个形状
  * @returns {Array} 随机选择的形状数据
  */
-export function getRandomShape() {
+function getRandomShape() {
   const shapes = [PLUS_PIXEL, DIAG_PIXEL, REVERSE_DIAG_PIXEL];
   return shapes[Math.floor(Math.random() * shapes.length)];
+}
+
+module.exports = {
+  PLUS_PIXEL,
+  DIAG_PIXEL,
+  REVERSE_DIAG_PIXEL,
+  getRandomShape
 }

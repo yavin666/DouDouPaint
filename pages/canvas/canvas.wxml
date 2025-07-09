@@ -8,14 +8,39 @@
     disable-scroll="true">
   </canvas>
   <view class="toolbar">
+    <!-- 画笔类型选择 -->
     <view class="pen-buttons">
-      <view class="pen-button {{currentPen === 'pencil' ? 'active' : ''}}" 
+      <view class="pen-button {{currentPen === 'pencil' ? 'active' : ''}}"
         bindtap="changePen" data-pen="pencil">铅笔</view>
-      <view class="pen-button {{currentPen === 'marker' ? 'active' : ''}}" 
+      <view class="pen-button {{currentPen === 'marker' ? 'active' : ''}}"
         bindtap="changePen" data-pen="marker">马克笔</view>
-      <view class="pen-button {{currentPen === 'glow' ? 'active' : ''}}" 
+      <view class="pen-button {{currentPen === 'glow' ? 'active' : ''}}"
         bindtap="changePen" data-pen="glow">荧光笔</view>
     </view>
+
+    <!-- 画笔大小选择 -->
+    <view class="brush-size-buttons">
+      <text class="section-title">画笔大小</text>
+      <view class="size-buttons">
+        <view class="size-button {{currentBrushSize === 'small' ? 'active' : ''}}"
+          bindtap="changeBrushSize" data-size="small">
+          <view class="size-preview size-small"></view>
+          <text>小</text>
+        </view>
+        <view class="size-button {{currentBrushSize === 'medium' ? 'active' : ''}}"
+          bindtap="changeBrushSize" data-size="medium">
+          <view class="size-preview size-medium"></view>
+          <text>中</text>
+        </view>
+        <view class="size-button {{currentBrushSize === 'large' ? 'active' : ''}}"
+          bindtap="changeBrushSize" data-size="large">
+          <view class="size-preview size-large"></view>
+          <text>大</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 操作按钮 -->
     <view class="action-buttons">
       <button bindtap="clearCanvas">清空</button>
       <button bindtap="saveImage">保存图片</button>

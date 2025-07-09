@@ -4,9 +4,9 @@
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#333333",
+    "navigationBarBackgroundColor": "#FFFFFF",
     "navigationBarTitleText": "抖抖画",
-    "navigationBarTextStyle": "white"
+    "navigationBarTextStyle": "black"
   },
   "renderer": "webview",
   "style": "v2",

@@ -12,23 +12,31 @@ class WigglePixel {
    * @param {number} y - 像素y坐标
    * @param {string} color - 像素颜色
    * @param {Array} frameData - 帧动画数据
+   * @param {number} size - 画笔大小（像素块尺寸）
    */
-  constructor(x, y, color, frameData) {
+  constructor(x, y, color, frameData, size = 2) {
     this.x = x;
     this.y = y;
     this.color = color;
     this.frameData = frameData;
     this.currentFrame = 0;
+    this.size = size; // 画笔大小，默认2x2像素
   }
   
   /**
-   * 绘制当前帧的像素
+   * 绘制当前帧的像素（支持不同大小）
    * @param {CanvasContext} ctx - 画布上下文
    */
   draw(ctx) {
     ctx.fillStyle = this.color;
     this.frameData[this.currentFrame].forEach(([dx, dy]) => {
-      ctx.fillRect(this.x + dx, this.y + dy, 1, 1);
+      // 根据画笔大小绘制像素块
+      ctx.fillRect(
+        this.x + dx * this.size,
+        this.y + dy * this.size,
+        this.size,
+        this.size
+      );
     });
   }
   
