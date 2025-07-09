@@ -1,11 +1,10 @@
-// 暂时移除 reaction，使用简化的监听方式
-// import { reaction } from 'mobx-miniprogram'
+const { reaction, autorun } = require('mobx-miniprogram')
 
 /**
  * 优化的动画控制器
  * 使用MobX响应式更新和分层渲染
  */
-class OptimizedAnimationController {
+class optimizedAnimationController {
   constructor(pixelStore, canvasWidth, canvasHeight, backgroundColor = '#FFFFFF') {
     this.pixelStore = pixelStore
     this.canvasWidth = canvasWidth
@@ -59,11 +58,37 @@ class OptimizedAnimationController {
   }
 
   /**
-   * 设置简化的监听（不使用 reaction）
+   * 设置 MobX 6.x 响应式监听
    */
   setupReactions() {
-    // 简化版本：直接在动画循环中检查变化
-    console.log('使用简化的监听模式')
+    console.log('设置 MobX 6.x 响应式监听')
+
+    // 监听活跃像素变化，自动启动/停止动画
+    this.activePixelsReaction = reaction(
+      () => this.pixelStore.activePixels.size,
+      (activePixelCount) => {
+        console.log(`活跃像素数量变化: ${activePixelCount}`)
+        if (activePixelCount > 0 && !this.isAnimating) {
+          this.startAnimation()
+        }
+        // 保持持续动画，不在像素为0时停止
+      }
+    )
+
+    // 监听静态像素变化，触发静态层重绘
+    this.staticPixelsReaction = reaction(
+      () => this.pixelStore.staticPixels.size,
+      (staticPixelCount) => {
+        console.log(`静态像素数量变化: ${staticPixelCount}`)
+        // 可以在这里触发静态层重绘
+      }
+    )
+
+    // 使用 autorun 监听配置变化
+    this.configReaction = autorun(() => {
+      const config = this.pixelStore.config
+      console.log(`配置更新: 最大活跃像素 ${config.maxActivePixels}`)
+    })
   }
 
   /**
@@ -165,19 +190,27 @@ class OptimizedAnimationController {
   startAnimation() {
     if (this.isAnimating) return
     
-    console.log('启动优化动画循环')
+    console.log('启动 MobX 6.x 优化动画循环')
     this.isAnimating = true
     
     const animate = () => {
       if (!this.isAnimating) return
 
-      // 更新活跃像素
-      this.pixelStore.updateActivePixels()
+      try {
+        // 更新活跃像素（MobX 6.x 会自动跟踪变化）
+        this.pixelStore.updateActivePixels()
 
-      // 渲染所有像素（即使没有像素也要保持循环）
-      this.renderAllPixels()
+        // 渲染所有像素
+        this.renderAllPixels()
 
-      // 持续动画循环，不检查像素数量
+        // 更新性能统计
+        this.pixelStore.updateStats()
+
+      } catch (error) {
+        console.error('动画循环错误:', error)
+      }
+
+      // 持续动画循环，保持抖动效果
       this.animationTimer = setTimeout(animate, this.frameRate)
     }
     
@@ -209,7 +242,24 @@ class OptimizedAnimationController {
    */
   destroy() {
     this.stopAnimation()
-    console.log('动画控制器已销毁')
+
+    // 清理 MobX 6.x reactions
+    if (this.activePixelsReaction) {
+      this.activePixelsReaction() // 调用返回的 disposer 函数
+      this.activePixelsReaction = null
+    }
+
+    if (this.staticPixelsReaction) {
+      this.staticPixelsReaction()
+      this.staticPixelsReaction = null
+    }
+
+    if (this.configReaction) {
+      this.configReaction()
+      this.configReaction = null
+    }
+
+    console.log('动画控制器已销毁，MobX reactions 已清理')
   }
 
   /**
@@ -226,4 +276,4 @@ class OptimizedAnimationController {
   }
 }
 
-module.exports = { OptimizedAnimationController }
+module.exports = { optimizedAnimationController }

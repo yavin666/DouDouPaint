@@ -10,7 +10,7 @@
  * @param {number} frames - 帧数
  * @returns {Promise<Array<string>>} 临时文件路径数组
  */
-export async function captureFramesForGif(page, frames = 3) {
+async function captureFramesForGif(page, frames = 3) {
   const frameFiles = [];
   
   // 暂停当前动画
@@ -66,7 +66,7 @@ export async function captureFramesForGif(page, frames = 3) {
  * 完整的GIF导出功能需要云函数支持
  * @param {Array<string>} frameFiles - 帧文件路径数组
  */
-export async function saveFrameImages(frameFiles) {
+async function saveFrameImages(frameFiles) {
   if (!frameFiles || frameFiles.length === 0) {
     wx.showToast({
       title: '没有可用的帧',
@@ -102,7 +102,7 @@ export async function saveFrameImages(frameFiles) {
  * @param {Object} options - 配置选项
  * @returns {Promise<string>} GIF文件临时路径
  */
-export async function exportGif(frameFiles, options = {}) {
+async function exportGif(frameFiles, options = {}) {
   if (!frameFiles || frameFiles.length === 0) {
     throw new Error('没有可用的帧');
   }
@@ -117,4 +117,10 @@ export async function exportGif(frameFiles, options = {}) {
   
   // 返回第一帧作为替代
   return frameFiles[0];
+}
+
+module.exports = {
+  captureFramesForGif,
+  saveFrameImages,
+  exportGif
 }

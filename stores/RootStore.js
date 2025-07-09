@@ -1,6 +1,6 @@
 const { makeAutoObservable } = require('mobx-miniprogram')
-const { PixelStore } = require('./pixelStore')
-const { OptimizedAnimationController } = require('./optimizedAnimationController')
+const { pixelStore } = require('./pixelStore')
+const { optimizedAnimationController } = require('./optimizedAnimationController')
 
 /**
  * 根Store，管理所有子Store
@@ -8,7 +8,7 @@ const { OptimizedAnimationController } = require('./optimizedAnimationController
 class RootStore {
   constructor() {
     // 初始化子Store
-    this.pixelStore = new PixelStore()
+    this.pixelStore = new pixelStore()
     this.animationController = null
     
     // 画布配置
@@ -44,82 +44,44 @@ class RootStore {
   /**
    * 初始化动画控制器
    */
-  initAnimationController(canvasWidth, canvasHeight, backgroundColor) {
-    this.canvasConfig.width = canvasWidth
-    this.canvasConfig.height = canvasHeight
-    this.canvasConfig.backgroundColor = backgroundColor
-    
-    this.animationController = new OptimizedAnimationController(
+  initAnimationController(canvas, ctx) {
+    this.animationController = new optimizedAnimationController(
       this.pixelStore,
-      canvasWidth,
-      canvasHeight,
-      backgroundColor
+      canvas,
+      ctx
     )
-    
-    return this.animationController
+    console.log('MobX动画控制器初始化完成')
   }
 
   /**
-   * 设置画布层
-   */
-  setupCanvasLayers(displayCanvas, displayCtx) {
-    if (this.animationController) {
-      this.animationController.setupCanvasLayers(displayCanvas, displayCtx)
-    }
-  }
-
-  /**
-   * 添加像素（支持画笔大小）
+   * 添加像素（代理到 pixelStore）
    */
   addPixel(x, y, color, frameData, size) {
     return this.pixelStore.addPixel(x, y, color, frameData, size)
   }
 
   /**
-   * 获取当前画笔大小
+   * 清空所有像素（代理到 pixelStore）
    */
-  getCurrentBrushSize() {
-    return this.drawingConfig.brushSizes[this.drawingConfig.currentBrushSize].size
-  }
-
-  /**
-   * 获取当前像素间距
-   */
-  getCurrentPixelSpacing() {
-    return this.drawingConfig.brushSizes[this.drawingConfig.currentBrushSize].spacing
+  clearAllPixels() {
+    return this.pixelStore.clearAllPixels()
   }
 
   /**
    * 设置画笔大小
    */
-  setBrushSize(sizeKey) {
-    if (this.drawingConfig.brushSizes[sizeKey]) {
-      this.drawingConfig.currentBrushSize = sizeKey
+  setBrushSize(size) {
+    if (this.drawingConfig.brushSizes[size]) {
+      this.drawingConfig.currentBrushSize = size
+      console.log(`画笔大小切换为: ${this.drawingConfig.brushSizes[size].label}`)
     }
   }
 
   /**
-   * 清除所有像素
+   * 获取当前画笔配置
    */
-  clearAllPixels() {
-    if (this.animationController) {
-      this.animationController.clearAllPixels()
-    }
-  }
-
-  /**
-   * 获取性能报告
-   */
-  getPerformanceReport() {
-    const pixelReport = this.pixelStore.getPerformanceReport()
-    const animationReport = this.animationController ? 
-      this.animationController.getPerformanceReport() : {}
-    
-    return {
-      ...pixelReport,
-      ...animationReport,
-      timestamp: new Date().toISOString()
-    }
+  getCurrentBrushConfig() {
+    return this.drawingConfig.brushSizes[this.drawingConfig.currentBrushSize]
   }
 
   /**
@@ -128,7 +90,9 @@ class RootStore {
   destroy() {
     if (this.animationController) {
       this.animationController.destroy()
+      this.animationController = null
     }
+    console.log('RootStore已销毁')
   }
 }
 

@@ -100,7 +100,7 @@ class EnhancedPixel {
 /**
  * 像素存储和管理Store
  */
-class PixelStore {
+class pixelStore {
   constructor() {
     // 活跃像素（正在动画）
     this.activePixels = new Map()
@@ -482,4 +482,4 @@ class PixelStore {
   }
 }
 
-module.exports = { PixelStore }
+module.exports = { pixelStore }
