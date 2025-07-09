@@ -6,10 +6,6 @@ const { captureFramesForGif, saveFrameImages } = require('../../utils/gifExport'
 
 Page({
   data: {
-    canvasWidth: 0,
-    canvasHeight: 0,
-    canvas: null,
-    ctx: null,
     currentPen: 'pencil',
     pens: {
       pencil: { color: '#000000', width: 2, audio: '/static/sounds/clip.mp3' },
@@ -20,12 +16,10 @@ Page({
     lastY: 0,
     isDrawing: false,
     canvasBackground: '#FFFFFF',
-    pixelSpacing: 4, // 像素间距（会根据画笔大小动态调整）
     canvasLeft: 0,  // 画布左边距
     canvasTop: 0,   // 画布上边距
-    pixelRatio: 1,  // 设备像素比
     audioCounter: 0,  // 音频播放计数器
-    audioInterval: 10,  // 音频播放间隔（增加间隔减少音频播放频率）
+    audioInterval: 10,  // 音频播放间隔
     lastAudioTime: 0,  // 上次播放音频的时间戳
     audioTimeInterval: 300  // 音频播放的最小时间间隔（毫秒）
   },
@@ -55,39 +49,9 @@ Page({
 
   /**
    * 初始化画布
-   * 获取设备信息，设置画布大小，创建上下文
+   * 简化版本，使用 rpx 单位实现响应式布局
    */
   initCanvas() {
-    // 使用新API获取设备信息
-    let pixelRatio = 1;
-    let windowHeight = 667;
-    let windowWidth = 375;
-
-    try {
-      if (typeof wx.getWindowInfo === 'function') {
-        const windowInfo = wx.getWindowInfo();
-        windowHeight = windowInfo.windowHeight || 667;
-        windowWidth = windowInfo.windowWidth || 375;
-      }
-
-      if (typeof wx.getDeviceInfo === 'function') {
-        const deviceInfo = wx.getDeviceInfo();
-        pixelRatio = deviceInfo.pixelRatio || 1;
-      }
-    } catch (error) {
-      console.warn('获取设备信息失败，使用默认值:', error);
-    }
-    
-    // 计算画布高度（减去工具栏高度，工具栏现在是160px）
-    const toolbarHeight = 160;
-    const canvasHeight = Math.max(200, windowHeight - toolbarHeight);
-    
-    this.setData({
-      canvasWidth: windowWidth,
-      canvasHeight: canvasHeight,
-      pixelRatio: pixelRatio
-    });
-    
     // 创建画布上下文
     const query = wx.createSelectorQuery();
     query.select('#myCanvas')
@@ -97,34 +61,38 @@ Page({
           console.error('未找到canvas节点');
           return;
         }
-        
+
         const canvas = res[0].node;
         const ctx = canvas.getContext('2d');
-        
+
         // 获取画布在页面中的位置
         const canvasLeft = res[0].left || 0;
         const canvasTop = res[0].top || 0;
-        
-        // 设置画布大小（考虑设备像素比）
-        canvas.width = this.data.canvasWidth * pixelRatio;
-        canvas.height = this.data.canvasHeight * pixelRatio;
-        
-        // 缩放上下文以匹配设备像素比
-        ctx.scale(pixelRatio, pixelRatio);
-        
+
+        // 获取画布的实际显示尺寸
+        const canvasWidth = res[0].width || 375;
+        const canvasHeight = res[0].height || 500;
+
+        // 设置画布内部尺寸（提高清晰度）
+        canvas.width = canvasWidth * 2;
+        canvas.height = canvasHeight * 2;
+
+        // 缩放上下文以匹配高分辨率
+        ctx.scale(2, 2);
+
         this.setData({
           canvasLeft: canvasLeft,
           canvasTop: canvasTop
         });
-        
+
         // 保存canvas和ctx引用
         this.canvas = canvas;
         this.ctx = ctx;
 
         // 初始化MobX优化的动画控制器
         this.animationController = rootStore.initAnimationController(
-          this.data.canvasWidth,
-          this.data.canvasHeight,
+          canvasWidth,
+          canvasHeight,
           this.data.canvasBackground
         );
 
@@ -134,7 +102,7 @@ Page({
         // 设置背景色
         this.clearCanvas();
 
-        console.log('MobX动画控制器初始化完成');
+        console.log('画布初始化完成');
       });
   },
   
@@ -175,42 +143,37 @@ Page({
   
   /**
    * 绘画中
-   * 处理触摸移动事件，计算触摸点坐标并继续绘制
+   * 处理触摸移动事件，简化版本
    */
   touchMove: function (e) {
     if (!this.data.isDrawing) return;
-    
+
     const touch = e.touches[0];
-    // 计算触摸点相对于画布的坐标，考虑页面滚动
     const x = touch.pageX - this.data.canvasLeft;
     const y = touch.pageY - this.data.canvasTop;
-    
-    // 根据当前画笔大小获取像素间距
-    const pixelSpacing = rootStore.getCurrentPixelSpacing();
+
     const { lastX, lastY } = this.data;
-    
-    // 计算距离和步数，实现平滑绘制
+
+    // 简化的距离计算，固定间距
     const dx = x - lastX;
     const dy = y - lastY;
     const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // 使用固定间距，简化计算
+    const pixelSpacing = 6;
     const steps = Math.max(1, Math.floor(distance / pixelSpacing));
-    
-    // 在移动过程中控制音频播放频率
-    // 只在特定步骤播放音频，而不是每个像素都播放
-    let shouldPlayAudio = false;
-    
+
     for (let i = 1; i <= steps; i++) {
       const ratio = i / steps;
       const px = lastX + dx * ratio;
       const py = lastY + dy * ratio;
-      
-      // 传递是否应该播放音频的标志
-      // 只在最后一个步骤可能播放音频，进一步降低频率
-      shouldPlayAudio = (i === steps);
+
+      // 只在最后一个步骤播放音频
+      const shouldPlayAudio = (i === steps);
       this.placePixel(px, py, shouldPlayAudio);
     }
-    
-    // 直接更新内部变量，避免频繁的 setData 调用
+
+    // 更新位置
     this.data.lastX = x;
     this.data.lastY = y;
   },
