@@ -13,22 +13,34 @@ class WigglePixel {
    * @param {string} color - 像素颜色
    * @param {Array} frameData - 帧动画数据
    * @param {number} size - 画笔大小（像素块尺寸）
+   * @param {number} opacity - 透明度 (0-1)
+   * @param {string} penType - 画笔类型 (pencil/marker/glow)
+   * @param {number} zIndex - 层级 (数值越大越在上层)
    */
-  constructor(x, y, color, frameData, size = 2) {
+  constructor(x, y, color, frameData, size = 2, opacity = 1, penType = 'pencil', zIndex = 0) {
     this.x = x;
     this.y = y;
     this.color = color;
     this.frameData = frameData;
     this.currentFrame = 0;
     this.size = size; // 画笔大小，默认2x2像素
+    this.opacity = opacity; // 透明度
+    this.penType = penType; // 画笔类型
+    this.zIndex = zIndex; // 层级
   }
   
   /**
-   * 绘制当前帧的像素（支持不同大小）
+   * 绘制当前帧的像素（支持不同大小和透明度）
    * @param {CanvasContext} ctx - 画布上下文
    */
   draw(ctx) {
+    // 保存当前的globalAlpha
+    const originalAlpha = ctx.globalAlpha;
+
+    // 设置透明度
+    ctx.globalAlpha = this.opacity;
     ctx.fillStyle = this.color;
+
     this.frameData[this.currentFrame].forEach(([dx, dy]) => {
       // 根据画笔大小绘制像素块
       ctx.fillRect(
@@ -38,6 +50,9 @@ class WigglePixel {
         this.size
       );
     });
+
+    // 恢复原始的globalAlpha
+    ctx.globalAlpha = originalAlpha;
   }
   
   /**
