@@ -69,20 +69,13 @@ class OptimizedAnimationController {
    */
   clearMainCanvas() {
     if (!this.displayCtx) return
-
-    // 支持透明背景
-    if (this.backgroundColor === 'transparent') {
-      // 透明背景：清除所有像素，不填充背景色
-      this.displayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight)
-    } else {
-      // 非透明背景：填充背景色
-      this.displayCtx.fillStyle = this.backgroundColor
-      this.displayCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
-    }
+    
+    this.displayCtx.fillStyle = this.backgroundColor
+    this.displayCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
   }
   
   /**
-   * 渲染所有像素（按层级顺序绘制）
+   * 渲染所有像素（简化版本）
    */
   renderAllPixels() {
     if (!this.displayCtx) return
@@ -90,18 +83,9 @@ class OptimizedAnimationController {
     // 清除画布
     this.clearMainCanvas()
 
-    // 按层级顺序绘制像素：荧光笔(底层) -> 马克笔(中层) -> 铅笔(顶层)
-    if (this.pixelStore.getPixelsInDrawOrder) {
-      // 使用新的分层方法
-      const orderedPixels = this.pixelStore.getPixelsInDrawOrder()
-      orderedPixels.forEach(pixel => {
-        pixel.draw(this.displayCtx)
-      })
-    } else {
-      // 兼容旧版本：直接绘制所有像素
-      for (const [, pixel] of this.pixelStore.activePixels) {
-        pixel.draw(this.displayCtx)
-      }
+    // 绘制所有活跃像素（所有像素都保持抖动）
+    for (const [, pixel] of this.pixelStore.activePixels) {
+      pixel.draw(this.displayCtx)
     }
   }
   
