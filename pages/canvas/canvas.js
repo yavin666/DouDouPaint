@@ -31,9 +31,7 @@ Page({
       store: rootStore,
       fields: {
         totalPixels: () => rootStore.pixelStore.totalPixelCount,
-        activePixels: () => rootStore.pixelStore.stats.activeCount,
-        staticPixels: () => rootStore.pixelStore.stats.staticCount,
-        fps: () => rootStore.pixelStore.stats.fps,
+        activePixels: () => rootStore.pixelStore.activePixels.size,
         currentBrushSize: () => rootStore.drawingConfig.currentBrushSize,
         brushSizes: () => rootStore.drawingConfig.brushSizes
       },
@@ -314,26 +312,6 @@ Page({
     wx.vibrateShort({
       type: 'light'
     });
-  },
-
-  // 性能监控（调试用）
-  logPerformance: function() {
-    const report = rootStore.getPerformanceReport();
-    console.log('=== 性能报告 ===');
-    console.log(`总像素: ${report.totalPixels}`);
-    console.log(`活跃像素: ${report.activePixels}`);
-    console.log(`静态像素: ${report.staticPixels}`);
-    console.log(`FPS: ${report.fps}`);
-    console.log(`脏区域: ${report.dirtyRegions || 0}`);
-    console.log('================');
-
-    // 性能警告
-    if (report.activePixels > 250) {
-      console.warn('活跃像素数量较高，可能影响性能');
-    }
-    if (report.totalPixels > 1500) {
-      console.warn('总像素数量较高，注意内存使用');
-    }
   },
 
   // 页面卸载时清理资源
