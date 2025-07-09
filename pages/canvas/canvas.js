@@ -33,12 +33,14 @@ Page({
         totalPixels: () => rootStore.pixelStore.totalPixelCount,
         activePixels: () => rootStore.pixelStore.activePixels.size,
         currentBrushSize: () => rootStore.drawingConfig.currentBrushSize,
-        brushSizes: () => rootStore.drawingConfig.brushSizes
+        brushSizes: () => rootStore.drawingConfig.brushSizes,
+        isTransparentBackground: () => rootStore.canvasConfig.isTransparent
       },
       actions: {
         addPixel: 'addPixel',
         clearAllPixels: 'clearAllPixels',
-        setBrushSize: 'setBrushSize'
+        setBrushSize: 'setBrushSize',
+        setTransparentBackground: 'setTransparentBackground'
       }
     });
 

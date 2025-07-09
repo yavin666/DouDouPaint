@@ -69,9 +69,16 @@ class OptimizedAnimationController {
    */
   clearMainCanvas() {
     if (!this.displayCtx) return
-    
-    this.displayCtx.fillStyle = this.backgroundColor
-    this.displayCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
+
+    // 支持透明背景
+    if (this.backgroundColor === 'transparent') {
+      // 透明背景：清除所有像素，不填充背景色
+      this.displayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight)
+    } else {
+      // 非透明背景：填充背景色
+      this.displayCtx.fillStyle = this.backgroundColor
+      this.displayCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
+    }
   }
   
   /**
@@ -140,7 +147,7 @@ class OptimizedAnimationController {
   stopAnimation() {
     this.isAnimating = false
     if (this.animationId) {
-      cancelAnimationFrame(this.animationId)
+      clearTimeout(this.animationId)
       this.animationId = null
     }
     console.log('动画已停止')

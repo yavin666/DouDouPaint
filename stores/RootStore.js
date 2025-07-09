@@ -15,7 +15,8 @@ class RootStore {
     this.canvasConfig = {
       width: 375,
       height: 500,
-      backgroundColor: '#FFFFFF'
+      backgroundColor: '#FFFFFF',
+      isTransparent: false // 透明背景开关
     }
     
     // 绘制配置（持续动画优化 + 画笔大小）
@@ -98,6 +99,36 @@ class RootStore {
    */
   getCurrentPixelSpacing() {
     return this.getCurrentBrushConfig().spacing
+  }
+
+  /**
+   * 切换透明背景
+   * @param {boolean} isTransparent - 是否透明背景
+   */
+  setTransparentBackground(isTransparent) {
+    this.canvasConfig.isTransparent = isTransparent
+    this.canvasConfig.backgroundColor = isTransparent ? 'transparent' : '#FFFFFF'
+
+    // 更新动画控制器的背景色
+    if (this.animationController) {
+      this.animationController.backgroundColor = this.canvasConfig.backgroundColor
+    }
+
+    console.log(`背景设置为: ${isTransparent ? '透明' : '白色'}`)
+  }
+
+  /**
+   * 获取当前背景色
+   */
+  getCurrentBackgroundColor() {
+    return this.canvasConfig.backgroundColor
+  }
+
+  /**
+   * 获取透明背景状态
+   */
+  getTransparentBackground() {
+    return this.canvasConfig.isTransparent
   }
 
   /**
