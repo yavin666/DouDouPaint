@@ -148,10 +148,18 @@ Page({
    * 处理触摸开始事件，计算触摸点坐标并开始绘制
    */
   touchStart: function (e) {
+    console.log('=== touchStart 被调用 ===')
+    console.log('event:', e)
+
     const touch = e.touches[0];
+    console.log('touch:', touch)
+    console.log('canvasLeft:', this.data.canvasLeft, 'canvasTop:', this.data.canvasTop)
+
     // 计算触摸点相对于画布的坐标，考虑页面滚动
     const x = touch.pageX - this.data.canvasLeft;
     const y = touch.pageY - this.data.canvasTop;
+
+    console.log('计算后的坐标:', { x, y })
     
     this.setData({
       lastX: x,
@@ -227,10 +235,21 @@ Page({
    * @param {boolean} [checkAudio=true] - 是否检查音频播放条件
    */
   placePixel(x, y, checkAudio = true) {
-    if (!this.ctx || !this.animationController) return;
+    console.log('=== placePixel 被调用 ===')
+    console.log('参数:', { x, y, checkAudio })
+    console.log('ctx:', this.ctx)
+    console.log('animationController:', this.animationController)
+
+    if (!this.ctx || !this.animationController) {
+      console.warn('ctx 或 animationController 未初始化')
+      return;
+    }
 
     const pen = this.data.pens[this.data.currentPen];
     const brushSize = rootStore.getCurrentBrushSize();
+
+    console.log('pen:', pen)
+    console.log('brushSize:', brushSize)
 
     // 使用MobX Store添加像素（包含画笔大小）
     rootStore.addPixel(x, y, pen.color, getRandomShape(), brushSize);

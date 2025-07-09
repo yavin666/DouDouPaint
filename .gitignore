@@ -78,7 +78,6 @@ typings/
 .tern-port
 
 # WeChat Mini Program specific
-miniprogram_npm/
 .DS_Store
 Thumbs.db
 

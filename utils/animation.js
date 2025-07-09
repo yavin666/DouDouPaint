@@ -28,15 +28,14 @@ class WigglePixel {
    * @param {CanvasContext} ctx - 画布上下文
    */
   draw(ctx) {
+    console.log(`绘制像素 - 位置: (${this.x}, ${this.y}), 颜色: ${this.color}, 大小: ${this.size}, 帧: ${this.currentFrame}`)
     ctx.fillStyle = this.color;
     this.frameData[this.currentFrame].forEach(([dx, dy]) => {
+      const drawX = this.x + dx * this.size
+      const drawY = this.y + dy * this.size
+      console.log(`  绘制矩形: (${drawX}, ${drawY}), 大小: ${this.size}x${this.size}`)
       // 根据画笔大小绘制像素块
-      ctx.fillRect(
-        this.x + dx * this.size,
-        this.y + dy * this.size,
-        this.size,
-        this.size
-      );
+      ctx.fillRect(drawX, drawY, this.size, this.size);
     });
   }
   
@@ -51,7 +50,7 @@ class WigglePixel {
 /**
  * 动画控制器
  */
-export class AnimationController {
+class AnimationController {
   /**
    * 创建动画控制器
    * @param {CanvasRenderingContext2D} ctx - Canvas上下文
@@ -170,4 +169,7 @@ export class AnimationController {
   }
 }
 
-export default WigglePixel;
+module.exports = {
+  WigglePixel,
+  AnimationController
+};

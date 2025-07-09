@@ -135,10 +135,15 @@ class optimizedAnimationController {
    * 渲染所有像素（简化版本）
    */
   renderAllPixels() {
-    if (!this.displayCtx) return
+    if (!this.displayCtx) {
+      console.warn('displayCtx 未设置，无法渲染')
+      return
+    }
 
     // 清除画布
     this.clearMainCanvas()
+
+    console.log(`渲染像素 - 静态: ${this.pixelStore.staticPixels.size}, 活跃: ${this.pixelStore.activePixels.size}`)
 
     // 先绘制静态像素
     for (const [, pixel] of this.pixelStore.staticPixels) {
@@ -147,6 +152,7 @@ class optimizedAnimationController {
 
     // 再绘制活跃像素
     for (const [, pixel] of this.pixelStore.activePixels) {
+      console.log('绘制活跃像素:', pixel)
       pixel.draw(this.displayCtx)
     }
   }

@@ -1,5 +1,5 @@
 const { makeAutoObservable } = require('mobx-miniprogram')
-const { pixelStore } = require('./pixelStore')
+const { PixelStore } = require('./pixelStore')
 const { optimizedAnimationController } = require('./optimizedAnimationController')
 
 /**
@@ -8,7 +8,7 @@ const { optimizedAnimationController } = require('./optimizedAnimationController
 class RootStore {
   constructor() {
     // 初始化子Store
-    this.pixelStore = new pixelStore()
+    this.pixelStore = new PixelStore()
     this.animationController = null
     
     // 画布配置
@@ -44,13 +44,15 @@ class RootStore {
   /**
    * 初始化动画控制器
    */
-  initAnimationController(canvas, ctx) {
+  initAnimationController(canvasWidth, canvasHeight, backgroundColor) {
     this.animationController = new optimizedAnimationController(
       this.pixelStore,
-      canvas,
-      ctx
+      canvasWidth,
+      canvasHeight,
+      backgroundColor
     )
     console.log('MobX动画控制器初始化完成')
+    return this.animationController
   }
 
   /**
@@ -82,6 +84,39 @@ class RootStore {
    */
   getCurrentBrushConfig() {
     return this.drawingConfig.brushSizes[this.drawingConfig.currentBrushSize]
+  }
+
+  /**
+   * 获取当前画笔大小
+   */
+  getCurrentBrushSize() {
+    return this.getCurrentBrushConfig()
+  }
+
+  /**
+   * 获取当前像素间距
+   */
+  getCurrentPixelSpacing() {
+    return this.getCurrentBrushConfig().spacing
+  }
+
+  /**
+   * 设置Canvas层
+   */
+  setupCanvasLayers(canvas, ctx) {
+    if (this.animationController) {
+      this.animationController.setupCanvasLayers(canvas, ctx)
+    }
+  }
+
+  /**
+   * 获取性能报告
+   */
+  getPerformanceReport() {
+    if (this.animationController) {
+      return this.animationController.getPerformanceReport()
+    }
+    return this.pixelStore.getPerformanceReport()
   }
 
   /**
