@@ -16,6 +16,8 @@
         bindtap="changePen" data-pen="marker">马克笔</view>
       <view class="pen-button {{currentPen === 'glow' ? 'active' : ''}}"
         bindtap="changePen" data-pen="glow">荧光笔</view>
+      <view class="pen-button {{currentPen === 'eraser' ? 'active' : ''}} eraser-button"
+        bindtap="changePen" data-pen="eraser">橡皮擦</view>
     </view>
 
     <!-- 画笔大小选择 -->

@@ -33,8 +33,11 @@ class PixelStore {
    * @param {string} color - 颜色
    * @param {Array} frameData - 帧数据
    * @param {Object} brushConfig - 画笔配置
+   * @param {number} opacity - 透明度
+   * @param {string} penType - 画笔类型
+   * @param {number} zIndex - 层级
    */
-  addPixel(x, y, color, frameData, brushConfig) {
+  addPixel(x, y, color, frameData, brushConfig, opacity = 1, penType = 'pencil', zIndex = 0) {
     // 检查是否超过最大像素限制
     if (this.totalPixelCount >= this.config.maxTotalPixels) {
       this.removeOldestPixel()
@@ -45,11 +48,14 @@ class PixelStore {
     
     // 创建抖动像素
     const pixel = new WigglePixel(
-      x, 
-      y, 
-      color, 
-      frameData, 
-      brushConfig.size || 2
+      x,
+      y,
+      color,
+      frameData,
+      brushConfig.size || 2,
+      opacity,
+      penType,
+      zIndex
     )
     
     // 添加像素元数据
@@ -85,6 +91,84 @@ class PixelStore {
     this.activePixels.clear()
     this.totalPixelCount = 0
     this.dirtyRegions = []
+  }
+
+  /**
+   * 删除指定区域内的像素（橡皮擦功能）
+   * @param {number} centerX - 橡皮擦中心x坐标
+   * @param {number} centerY - 橡皮擦中心y坐标
+   * @param {number} radius - 橡皮擦半径
+   */
+  erasePixelsInArea(centerX, centerY, radius) {
+    const pixelsToRemove = []
+
+    // 遍历所有活跃像素，找到在橡皮擦范围内的像素
+    for (const [pixelId, pixel] of this.activePixels) {
+      const dx = pixel.x - centerX
+      const dy = pixel.y - centerY
+      const distance = Math.sqrt(dx * dx + dy * dy)
+
+      // 如果像素在橡皮擦范围内，标记为删除
+      if (distance <= radius) {
+        pixelsToRemove.push(pixelId)
+      }
+    }
+
+    // 删除标记的像素
+    pixelsToRemove.forEach(pixelId => {
+      this.activePixels.delete(pixelId)
+    })
+
+    // 如果删除了像素，添加脏区域
+    if (pixelsToRemove.length > 0) {
+      this.addDirtyRegion(
+        centerX - radius - 10,
+        centerY - radius - 10,
+        (radius + 10) * 2,
+        (radius + 10) * 2
+      )
+    }
+
+    return pixelsToRemove.length
+  }
+
+  /**
+   * 删除指定区域内的像素（橡皮擦功能）
+   * @param {number} centerX - 橡皮擦中心x坐标
+   * @param {number} centerY - 橡皮擦中心y坐标
+   * @param {number} radius - 橡皮擦半径
+   */
+  erasePixelsInArea(centerX, centerY, radius) {
+    const pixelsToRemove = []
+
+    // 遍历所有活跃像素，找到在橡皮擦范围内的像素
+    for (const [pixelId, pixel] of this.activePixels) {
+      const dx = pixel.x - centerX
+      const dy = pixel.y - centerY
+      const distance = Math.sqrt(dx * dx + dy * dy)
+
+      // 如果像素在橡皮擦范围内，标记为删除
+      if (distance <= radius) {
+        pixelsToRemove.push(pixelId)
+      }
+    }
+
+    // 删除标记的像素
+    pixelsToRemove.forEach(pixelId => {
+      this.activePixels.delete(pixelId)
+    })
+
+    // 如果删除了像素，添加脏区域
+    if (pixelsToRemove.length > 0) {
+      this.addDirtyRegion(
+        centerX - radius - 10,
+        centerY - radius - 10,
+        (radius + 10) * 2,
+        (radius + 10) * 2
+      )
+    }
+
+    return pixelsToRemove.length
   }
   
   /**

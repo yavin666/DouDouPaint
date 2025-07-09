@@ -10,7 +10,8 @@ Page({
     pens: {
       pencil: { color: '#000000', width: 2, audio: '/static/sounds/clip.mp3' },
       marker: { color: '#39C5BB', width: 4, audio: '/static/sounds/clip.mp3' },
-      glow: { color: '#ffffff', width: 6, audio: '/static/sounds/clip.mp3' }
+      glow: { color: '#ffffff', width: 6, audio: '/static/sounds/clip.mp3' },
+      eraser: { color: 'transparent', width: 8, audio: '/static/sounds/clip.mp3', isEraser: true }
     },
     lastX: 0,
     lastY: 0,
@@ -184,7 +185,7 @@ Page({
   },
   
   /**
-   * 在指定位置放置一个抖动像素
+   * 在指定位置放置一个抖动像素或使用橡皮擦
    * @param {number} x - 像素x坐标
    * @param {number} y - 像素y坐标
    * @param {boolean} [checkAudio=true] - 是否检查音频播放条件
@@ -195,8 +196,20 @@ Page({
     const pen = this.data.pens[this.data.currentPen];
     const brushSize = rootStore.getCurrentBrushSize();
 
-    // 使用MobX Store添加像素（包含画笔大小）
-    rootStore.addPixel(x, y, pen.color, getRandomShape(), brushSize);
+    // 检查是否是橡皮擦模式
+    if (pen.isEraser) {
+      // 橡皮擦模式：删除指定区域的像素
+      const eraserRadius = brushSize.size * 3; // 橡皮擦半径比画笔大一些
+      const erasedCount = rootStore.erasePixelsInArea(x, y, eraserRadius);
+
+      // 如果删除了像素，重新渲染
+      if (erasedCount > 0 && this.animationController) {
+        this.animationController.renderAllPixels();
+      }
+    } else {
+      // 普通画笔模式：添加像素
+      rootStore.addPixel(x, y, pen.color, getRandomShape(), brushSize, this.data.currentPen);
+    }
 
     // 确保动画循环启动
     if (!this.animationController.isAnimating) {

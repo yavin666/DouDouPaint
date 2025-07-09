@@ -26,7 +26,8 @@ class RootStore {
       pens: {
         pencil: { color: '#000000', width: 2, opacity: 1.0, zIndex: 3 },
         marker: { color: '#333333', width: 4, opacity: 0.8, zIndex: 2 },
-        glow: { color: '#ffffff', width: 3, opacity: 0.5, zIndex: 1 }
+        glow: { color: '#ffffff', width: 3, opacity: 0.5, zIndex: 1 },
+        eraser: { color: 'transparent', width: 6, opacity: 1.0, zIndex: 4, isEraser: true }
       },
       brushSizes: {
         small: { size: 2, spacing: 4, label: '小' },
@@ -59,8 +60,9 @@ class RootStore {
   /**
    * 添加像素（代理到 pixelStore）
    */
-  addPixel(x, y, color, frameData, size) {
-    return this.pixelStore.addPixel(x, y, color, frameData, size)
+  addPixel(x, y, color, frameData, size, penType = 'pencil') {
+    const penConfig = this.drawingConfig.pens[penType] || this.drawingConfig.pens.pencil
+    return this.pixelStore.addPixel(x, y, color, frameData, size, penConfig.opacity, penType, penConfig.zIndex)
   }
 
   /**
@@ -68,6 +70,13 @@ class RootStore {
    */
   clearAllPixels() {
     return this.pixelStore.clearAllPixels()
+  }
+
+  /**
+   * 橡皮擦功能（代理到 pixelStore）
+   */
+  erasePixelsInArea(centerX, centerY, radius) {
+    return this.pixelStore.erasePixelsInArea(centerX, centerY, radius)
   }
 
   /**
