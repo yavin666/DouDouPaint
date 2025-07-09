@@ -2,7 +2,7 @@
 const { createStoreBindings } = require('mobx-miniprogram-bindings')
 const { rootStore } = require('../../stores/rootStore')
 const { getRandomShape } = require('../../utils/shapes')
-const { exportGif, saveGifToAlbum } = require('../../utils/gifExport')
+const { exportGif, showGifOptions } = require('../../utils/gifExport')
 
 Page({
   data: {
@@ -315,8 +315,8 @@ Page({
       // 导出GIF
       const gifPath = await exportGif(this, options);
 
-      // 保存或分享GIF
-      await saveGifToAlbum(gifPath);
+      // 显示GIF操作选项
+      await showGifOptions(gifPath);
 
     } catch (error) {
       console.error('GIF导出失败', error);
@@ -398,6 +398,38 @@ Page({
     wx.vibrateShort({
       type: 'light'
     });
+  },
+
+  // 页面分享配置
+  onShareAppMessage: function() {
+    // 检查是否有全局分享信息
+    const app = getApp();
+    if (app.globalData && app.globalData.shareInfo) {
+      const shareInfo = app.globalData.shareInfo;
+      // 清除全局分享信息
+      app.globalData.shareInfo = null;
+      return shareInfo;
+    }
+
+    // 默认分享信息
+    return {
+      title: '豆豆画板 - 抖动线条复古画板',
+      path: '/pages/canvas/canvas',
+      imageUrl: '/static/share-image.png', // 需要添加分享图片
+      success: () => {
+        wx.showToast({
+          title: '分享成功',
+          icon: 'success'
+        });
+      },
+      fail: (error) => {
+        console.error('分享失败:', error);
+        wx.showToast({
+          title: '分享失败',
+          icon: 'none'
+        });
+      }
+    };
   },
 
   // 页面卸载时清理资源
