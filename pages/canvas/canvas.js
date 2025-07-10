@@ -3,6 +3,7 @@ const { createStoreBindings } = require('mobx-miniprogram-bindings')
 const { rootStore } = require('../../stores/rootStore')
 const { getRandomShape } = require('../../utils/shapes')
 const { exportGif, showGifOptions } = require('../../utils/gifExport')
+const { exportFramesForBackend, showFrameExportOptions } = require('../../utils/frameExport')
 
 
 Page({
@@ -94,15 +95,15 @@ Page({
         this.canvas = canvas;
         this.ctx = ctx;
 
-        // 初始化MobX优化的动画控制器
-        this.animationController = rootStore.initAnimationController(
+        // 初始化简化的动画系统
+        this.animationStore = rootStore.initAnimationSystem(
           canvasWidth,
           canvasHeight,
           rootStore.getCurrentBackgroundColor()
         );
 
         // 设置Canvas层
-        rootStore.setupCanvasLayers(canvas, ctx);
+        this.animationStore.setupCanvas(canvas, ctx, canvasWidth, canvasHeight, rootStore.getCurrentBackgroundColor());
 
         // 设置背景色
         this.clearCanvas();
@@ -195,7 +196,7 @@ Page({
    * @param {boolean} [checkAudio=true] - 是否检查音频播放条件
    */
   placePixel(x, y, checkAudio = true) {
-    if (!this.ctx || !this.animationController) return;
+    if (!this.ctx || !this.animationStore) return;
 
     // 获取当前画笔配置
     const pen = this.data.pens[this.data.currentPen];
@@ -210,8 +211,8 @@ Page({
       console.log(`橡皮擦删除了 ${result} 个像素`);
 
       // 重新渲染
-      if (this.animationController) {
-        this.animationController.renderAllPixels();
+      if (this.animationStore) {
+        this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
       }
     } else {
       // 使用画笔管理器绘制普通像素
@@ -223,14 +224,14 @@ Page({
       );
 
       // 重新渲染
-      if (result !== null && this.animationController) {
-        this.animationController.renderAllPixels();
+      if (result !== null && this.animationStore) {
+        this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
       }
     }
 
     // 确保动画循环启动
-    if (!this.animationController.isAnimating) {
-      this.animationController.startAnimation();
+    if (!this.animationStore.animationLoop.isRunning) {
+      this.animationStore.startAnimation();
     }
 
     // 播放音效
@@ -277,8 +278,9 @@ Page({
     rootStore.setTransparentBackground(isTransparent);
 
     // 重新渲染画布以应用新的背景设置
-    if (this.animationController) {
-      this.animationController.renderAllPixels();
+    if (this.animationStore) {
+      this.animationStore.setBackgroundColor(rootStore.getCurrentBackgroundColor());
+      this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
     }
 
     console.log(`透明背景已${isTransparent ? '开启' : '关闭'}`);
@@ -324,9 +326,9 @@ Page({
     });
   },
   
-  // 导出GIF
+  // 导出GIF（保持兼容，但推荐使用新的简化导出）
   saveAsGif: async function() {
-    if (!this.canvas || !this.animationController) {
+    if (!this.canvas || !this.animationStore) {
       wx.showToast({ title: '画布未初始化', icon: 'none' });
       return;
     }
@@ -356,6 +358,17 @@ Page({
         duration: 2000
       });
     }
+  },
+
+  // 新的简化导出方法 - 导出帧数据给后端
+  exportFramesToBackend: async function() {
+    if (!this.canvas) {
+      wx.showToast({ title: '画布未初始化', icon: 'none' });
+      return;
+    }
+
+    // 使用新的简化导出功能
+    showFrameExportOptions(this);
   },
 
   // 显示GIF配置选项

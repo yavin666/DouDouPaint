@@ -1,6 +1,6 @@
 const { makeAutoObservable } = require('mobx-miniprogram')
 const { pixelStore } = require('./pixelStore')
-const { optimizedAnimationController } = require('./optimizedAnimationController')
+const { AnimationStore } = require('./animation/animationStore')
 const { BrushManager } = require('../utils/brushes/BrushManager')
 
 /**
@@ -10,7 +10,9 @@ class RootStore {
   constructor() {
     // 初始化子Store
     this.pixelStore = new pixelStore()
-    this.animationController = null
+
+    // 新的简化动画架构
+    this.animationStore = new AnimationStore(this.pixelStore)
 
     // 画布配置
     this.canvasConfig = {
@@ -48,17 +50,12 @@ class RootStore {
   }
 
   /**
-   * 初始化动画控制器
+   * 初始化动画系统
    */
-  initAnimationController(canvasWidth, canvasHeight, backgroundColor) {
-    this.animationController = new optimizedAnimationController(
-      this.pixelStore,
-      canvasWidth,
-      canvasHeight,
-      backgroundColor
-    )
-    console.log('MobX动画控制器初始化完成')
-    return this.animationController
+  initAnimationSystem(canvasWidth, canvasHeight, backgroundColor) {
+    this.animationStore.setupCanvas(null, null, canvasWidth, canvasHeight, backgroundColor)
+    console.log('简化动画系统初始化完成')
+    return this.animationStore
   }
 
   /**
@@ -117,14 +114,7 @@ class RootStore {
     return this.brushManager.getStatus()
   }
 
-  /**
-   * 设置Canvas层（代理到动画控制器）
-   */
-  setupCanvasLayers(canvas, ctx) {
-    if (this.animationController) {
-      this.animationController.setupCanvasLayers(canvas, ctx)
-    }
-  }
+
 
   /**
    * 获取当前背景颜色
@@ -162,20 +152,13 @@ class RootStore {
     this.canvasConfig.isTransparent = isTransparent
     this.canvasConfig.backgroundColor = isTransparent ? 'transparent' : '#FFFFFF'
 
-    // 更新动画控制器的背景色
-    if (this.animationController) {
-      this.animationController.backgroundColor = this.canvasConfig.backgroundColor
-    }
+    // 更新动画系统的背景色
+    this.animationStore.setBackgroundColor(this.canvasConfig.backgroundColor)
 
     console.log(`背景设置为: ${isTransparent ? '透明' : '白色'}`)
   }
 
-  /**
-   * 获取当前背景色
-   */
-  getCurrentBackgroundColor() {
-    return this.canvasConfig.backgroundColor
-  }
+
 
   /**
    * 获取透明背景状态
@@ -184,14 +167,7 @@ class RootStore {
     return this.canvasConfig.isTransparent
   }
 
-  /**
-   * 设置Canvas层
-   */
-  setupCanvasLayers(canvas, ctx) {
-    if (this.animationController) {
-      this.animationController.setupCanvasLayers(canvas, ctx)
-    }
-  }
+
 
   /**
    * 获取性能报告
@@ -204,13 +180,24 @@ class RootStore {
   }
 
   /**
+   * 新的简化接口 - 捕获帧数据用于后端GIF生成
+   */
+  async captureFramesForBackend() {
+    return await this.animationStore.captureFramesForBackend()
+  }
+
+  /**
+   * 设置动画背景色
+   */
+  setAnimationBackgroundColor(color) {
+    this.animationStore.setBackgroundColor(color)
+  }
+
+  /**
    * 销毁Store
    */
   destroy() {
-    if (this.animationController) {
-      this.animationController.destroy()
-      this.animationController = null
-    }
+    this.animationStore.destroy()
     console.log('rootStore已销毁')
   }
 }
