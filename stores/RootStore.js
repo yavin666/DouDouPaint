@@ -1,5 +1,5 @@
 const { makeAutoObservable } = require('mobx-miniprogram')
-const { PixelStore } = require('./pixelStore')
+const { pixelStore } = require('./pixelStore')
 const { optimizedAnimationController } = require('./optimizedAnimationController')
 
 /**
@@ -8,7 +8,7 @@ const { optimizedAnimationController } = require('./optimizedAnimationController
 class RootStore {
   constructor() {
     // 初始化子Store
-    this.pixelStore = new PixelStore()
+    this.pixelStore = new pixelStore()
     this.animationController = null
     
     // 画布配置
@@ -167,11 +167,11 @@ class RootStore {
       this.animationController.destroy()
       this.animationController = null
     }
-    console.log('RootStore已销毁')
+    console.log('rootStore已销毁')
   }
 }
 
 // 创建全局Store实例
 const rootStore = new RootStore()
 
-module.exports = { RootStore, rootStore }
+module.exports = { rootStore }

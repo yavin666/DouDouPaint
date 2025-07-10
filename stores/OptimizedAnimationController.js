@@ -4,7 +4,7 @@ const { reaction, autorun } = require('mobx-miniprogram')
  * 优化的动画控制器
  * 简化版本：移除静态层实现，所有像素保持抖动
  */
-class OptimizedAnimationController {
+class optimizedAnimationController {
   constructor(pixelStore, canvasWidth, canvasHeight, backgroundColor) {
     this.pixelStore = pixelStore
     this.canvasWidth = canvasWidth
@@ -185,4 +185,4 @@ class OptimizedAnimationController {
   }
 }
 
-module.exports = { optimizedAnimationController: OptimizedAnimationController }
+module.exports = { optimizedAnimationController: optimizedAnimationController }

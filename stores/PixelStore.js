@@ -6,7 +6,7 @@ const { WigglePixel } = require('../utils/animation')
  * 管理所有抖动像素的状态和动画
  * 简化版本：移除静态层，所有像素永久抖动
  */
-class PixelStore {
+class pixelStore {
   constructor() {
     // 像素存储 - 按画笔类型分层存储，控制绘制顺序
     this.pixelLayers = {
@@ -205,4 +205,4 @@ class PixelStore {
   }
 }
 
-module.exports = { PixelStore: PixelStore, pixelStore: PixelStore }
+module.exports = { pixelStore: pixelStore, pixelStore: pixelStore }
