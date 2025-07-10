@@ -1,6 +1,6 @@
 const { PencilBrush } = require('./PencilBrush')
 const { MarkerBrush } = require('./MarkerBrush')
-const { GlowBrush } = require('./GlowBrush')
+const { SprayBrush } = require('./SprayBrush')
 const { EraserBrush } = require('./EraserBrush')
 const { BRUSH_TYPES, DEFAULT_BRUSH_CONFIG, BRUSH_SIZES } = require('./brushConstants')
 
@@ -51,10 +51,10 @@ class BrushManager {
       ...pens[BRUSH_TYPES.MARKER]
     }))
     
-    // 创建荧光笔
-    this.brushes.set(BRUSH_TYPES.GLOW, new GlowBrush({
-      ...DEFAULT_BRUSH_CONFIG[BRUSH_TYPES.GLOW],
-      ...pens[BRUSH_TYPES.GLOW]
+    // 创建喷漆
+    this.brushes.set(BRUSH_TYPES.SPRAY, new SprayBrush({
+      ...DEFAULT_BRUSH_CONFIG[BRUSH_TYPES.SPRAY],
+      ...pens[BRUSH_TYPES.SPRAY]
     }))
     
     // 创建橡皮擦

@@ -51,18 +51,31 @@ class FrameRenderer {
    */
   renderFrame(pixelStore) {
     if (!this.ctx) return
-    
+
     // 清除画布
     this.clearCanvas()
-    
-    // 按层级渲染像素（glow -> marker -> pencil）
-    const renderOrder = ['glow', 'marker', 'pencil']
-    
+
+    // 按层级渲染像素（spray -> marker -> pencil）
+    const renderOrder = ['spray', 'marker', 'pencil']
+
     for (const layerType of renderOrder) {
       const layerPixels = pixelStore.getPixelsByLayer(layerType)
-      if (layerPixels && layerPixels.size > 0) {
-        for (const [, pixel] of layerPixels) {
-          pixel.draw(this.ctx)
+
+      if (layerType === 'spray') {
+        // 喷漆层使用数组，按顺序渲染（新像素在后面，渲染在上层）
+        if (layerPixels && layerPixels.length > 0) {
+          for (const item of layerPixels) {
+            if (item && item.pixel) {
+              item.pixel.draw(this.ctx)
+            }
+          }
+        }
+      } else {
+        // 其他层使用Map
+        if (layerPixels && layerPixels.size > 0) {
+          for (const [, pixel] of layerPixels) {
+            pixel.draw(this.ctx)
+          }
         }
       }
     }

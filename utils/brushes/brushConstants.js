@@ -4,7 +4,7 @@
 
 // 画笔层级定义（用于分层渲染）
 const BRUSH_LAYERS = {
-  GLOW: 0,      // 荧光笔层（最底层）
+  SPRAY: 0,     // 喷漆层（最底层，但新像素临时提升）
   MARKER: 1,    // 马克笔层（中间层）
   PENCIL: 2,    // 铅笔层（最顶层）
   ERASER: -1    // 橡皮擦（特殊层，不参与渲染）
@@ -13,8 +13,8 @@ const BRUSH_LAYERS = {
 // 画笔类型定义
 const BRUSH_TYPES = {
   PENCIL: 'pencil',
-  MARKER: 'marker', 
-  GLOW: 'glow',
+  MARKER: 'marker',
+  SPRAY: 'spray',
   ERASER: 'eraser'
 }
 
@@ -34,12 +34,12 @@ const DEFAULT_BRUSH_CONFIG = {
     audio: '/static/sounds/clip.mp3',
     name: '马克笔'
   },
-  [BRUSH_TYPES.GLOW]: {
-    color: '#ffffff',
-    opacity: 0.5,
-    layer: BRUSH_LAYERS.GLOW,
+  [BRUSH_TYPES.SPRAY]: {
+    color: '#666666',
+    opacity: 0.7,
+    layer: BRUSH_LAYERS.SPRAY,
     audio: '/static/sounds/clip.mp3',
-    name: '荧光笔'
+    name: '喷漆'
   },
   [BRUSH_TYPES.ERASER]: {
     color: 'transparent',
@@ -60,13 +60,13 @@ const BRUSH_SIZES = {
     eraserMultiplier: 2.5  // 橡皮擦大小倍数
   },
   medium: {
-    size: 4,
+    size: 6,
     spacing: 6,
     label: '中',
     eraserMultiplier: 2.5
   },
   large: {
-    size: 6,
+    size: 10,
     spacing: 8,
     label: '大',
     eraserMultiplier: 2.5
@@ -75,7 +75,7 @@ const BRUSH_SIZES = {
 
 // 渲染层级顺序（从底层到顶层）
 const RENDER_ORDER = [
-  BRUSH_LAYERS.GLOW,
+  BRUSH_LAYERS.SPRAY,
   BRUSH_LAYERS.MARKER,
   BRUSH_LAYERS.PENCIL
 ]

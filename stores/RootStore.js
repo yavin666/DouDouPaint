@@ -29,7 +29,7 @@ class RootStore {
       pens: {
         pencil: { color: '#000000', width: 2, opacity: 1.0 },
         marker: { color: '#333333', width: 4, opacity: 0.8 },
-        glow: { color: '#ffffff', width: 3, opacity: 0.5 },
+        spray: { color: '#666666', width: 3, opacity: 0.7 },
         eraser: { color: 'transparent', width: 6, opacity: 1.0, isEraser: true }
       },
       brushSizes: {

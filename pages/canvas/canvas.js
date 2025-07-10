@@ -12,7 +12,7 @@ Page({
     pens: {
       pencil: { color: '#000000', width: 2, audio: '/static/sounds/clip.mp3' },
       marker: { color: '#39C5BB', width: 4, audio: '/static/sounds/clip.mp3' },
-      glow: { color: '#ffffff', width: 6, audio: '/static/sounds/clip.mp3' },
+      spray: { color: '#666666', width: 6, audio: '/static/sounds/clip.mp3' },
       eraser: { color: 'transparent', width: 8, audio: '/static/sounds/clip.mp3', isEraser: true }
     },
     lastX: 0,

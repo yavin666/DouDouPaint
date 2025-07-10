@@ -10,7 +10,7 @@ class pixelStore {
   constructor() {
     // 像素存储 - 按画笔类型分层存储，控制绘制顺序
     this.pixelLayers = {
-      glow: new Map(),      // 荧光笔层（最底层）
+      spray: [],            // 喷漆层（使用数组保持插入顺序，新像素在后面）
       marker: new Map(),    // 马克笔层（中间层）
       pencil: new Map()     // 铅笔层（最上层）
     }
@@ -81,7 +81,56 @@ class pixelStore {
 
     return pixelId
   }
-  
+
+  /**
+   * 添加喷漆像素（新像素始终在喷漆层顶部）
+   * @param {number} x - x坐标
+   * @param {number} y - y坐标
+   * @param {string} color - 颜色
+   * @param {Array} frameData - 帧数据
+   * @param {Object} brushConfig - 画笔配置
+   * @param {number} opacity - 透明度
+   * @param {string} penType - 画笔类型
+   */
+  addSprayPixel(x, y, color, frameData, brushConfig, opacity = 1, penType = 'spray') {
+    // 检查是否超过最大像素限制
+    if (this.totalPixelCount >= this.config.maxTotalPixels) {
+      this.removeOldestPixel()
+    }
+
+    // 创建像素ID
+    const pixelId = `pixel_${this.totalPixelCount}_${Date.now()}`
+
+    // 创建抖动像素
+    const pixel = new WigglePixel(
+      x,
+      y,
+      color,
+      frameData,
+      brushConfig.size || 2,
+      opacity,
+      penType
+    )
+
+    // 添加像素元数据
+    pixel.id = pixelId
+    pixel.createdAt = Date.now()
+    pixel.isActive = true
+
+    // 添加到活跃像素集合
+    this.activePixels.set(pixelId, pixel)
+
+    // 新的喷漆层级逻辑：直接添加到spray数组末尾（新像素在后面，渲染时在上层）
+    this.pixelLayers.spray.push({ id: pixelId, pixel: pixel })
+
+    this.totalPixelCount++
+
+    // 添加脏区域
+    this.addDirtyRegion(x - 10, y - 10, 20, 20)
+
+    return pixelId
+  }
+
   /**
    * 移除最老的像素
    */
@@ -95,8 +144,17 @@ class pixelStore {
       this.activePixels.delete(oldestId)
 
       // 从对应的分层存储中删除
-      if (pixel && pixel.penType && this.pixelLayers[pixel.penType]) {
-        this.pixelLayers[pixel.penType].delete(oldestId)
+      if (pixel && pixel.penType) {
+        if (pixel.penType === 'spray') {
+          // 喷漆层使用数组，需要找到并移除对应项
+          const index = this.pixelLayers.spray.findIndex(item => item.id === oldestId)
+          if (index !== -1) {
+            this.pixelLayers.spray.splice(index, 1)
+          }
+        } else if (this.pixelLayers[pixel.penType]) {
+          // 其他层使用Map
+          this.pixelLayers[pixel.penType].delete(oldestId)
+        }
       }
     }
   }
@@ -108,9 +166,9 @@ class pixelStore {
     this.activePixels.clear()
 
     // 清空所有分层存储
-    for (const layer in this.pixelLayers) {
-      this.pixelLayers[layer].clear()
-    }
+    this.pixelLayers.spray = []  // 清空喷漆数组
+    this.pixelLayers.marker.clear()
+    this.pixelLayers.pencil.clear()
 
     this.totalPixelCount = 0
     this.dirtyRegions = []
@@ -197,10 +255,13 @@ class pixelStore {
 
   /**
    * 按层级获取像素（用于分层渲染）
-   * @param {string} layerType - 层级类型 (glow/marker/pencil)
-   * @returns {Map} 该层级的像素集合
+   * @param {string} layerType - 层级类型 (spray/marker/pencil)
+   * @returns {Map|Array} 该层级的像素集合
    */
   getPixelsByLayer(layerType) {
+    if (layerType === 'spray') {
+      return this.pixelLayers.spray || []
+    }
     return this.pixelLayers[layerType] || new Map()
   }
 
@@ -210,7 +271,7 @@ class pixelStore {
    */
   getPixelsByRenderOrder() {
     return [
-      { layer: 'glow', pixels: this.pixelLayers.glow },
+      { layer: 'spray', pixels: this.pixelLayers.spray },
       { layer: 'marker', pixels: this.pixelLayers.marker },
       { layer: 'pencil', pixels: this.pixelLayers.pencil }
     ]
