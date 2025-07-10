@@ -69,9 +69,14 @@ class optimizedAnimationController {
    */
   clearMainCanvas() {
     if (!this.displayCtx) return
-    
-    this.displayCtx.fillStyle = this.backgroundColor
-    this.displayCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
+
+    // 透明背景模式下使用clearRect，非透明背景使用fillRect
+    if (this.backgroundColor === 'transparent') {
+      this.displayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight)
+    } else {
+      this.displayCtx.fillStyle = this.backgroundColor
+      this.displayCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
+    }
   }
   
   /**
