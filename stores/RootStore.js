@@ -1,6 +1,7 @@
 const { makeAutoObservable } = require('mobx-miniprogram')
 const { pixelStore } = require('./pixelStore')
 const { optimizedAnimationController } = require('./optimizedAnimationController')
+const { BrushManager } = require('../utils/brushes/BrushManager')
 
 /**
  * 根Store，管理所有子Store
@@ -30,17 +31,15 @@ class RootStore {
         eraser: { color: 'transparent', width: 6, opacity: 1.0, isEraser: true }
       },
       brushSizes: {
-        small: { size: 2, spacing: 4, label: '小' },
-        medium: { size: 4, spacing: 6, label: '中' },
-        large: { size: 6, spacing: 8, label: '大' }
+        small: { size: 2, spacing: 4, label: '小', eraserMultiplier: 2.5 },
+        medium: { size: 4, spacing: 6, label: '中', eraserMultiplier: 2.5 },
+        large: { size: 6, spacing: 8, label: '大', eraserMultiplier: 2.5 }
       },
       isDrawing: false,
       lastX: 0,
       lastY: 0
     }
 
-    // 初始化画笔管理器
-    this.brushManager = new BrushManager(this.drawingConfig)
     // 初始化画笔管理器
     this.brushManager = new BrushManager(this.drawingConfig)
 
@@ -67,7 +66,8 @@ class RootStore {
    */
   addPixel(x, y, color, frameData, size, penType = 'pencil') {
     const penConfig = this.drawingConfig.pens[penType] || this.drawingConfig.pens.pencil
-    return this.pixelStore.addPixel(x, y, color, frameData, size, penConfig.opacity, penType)
+    const brushConfig = { size: size }
+    return this.pixelStore.addPixel(x, y, color, frameData, brushConfig, penConfig.opacity, penType)
   }
 
   /**
@@ -115,6 +115,22 @@ class RootStore {
    */
   getBrushManagerStatus() {
     return this.brushManager.getStatus()
+  }
+
+  /**
+   * 设置Canvas层（代理到动画控制器）
+   */
+  setupCanvasLayers(canvas, ctx) {
+    if (this.animationController) {
+      this.animationController.setupCanvasLayers(canvas, ctx)
+    }
+  }
+
+  /**
+   * 获取当前背景颜色
+   */
+  getCurrentBackgroundColor() {
+    return this.canvasConfig.isTransparent ? 'transparent' : this.canvasConfig.backgroundColor
   }
 
   /**

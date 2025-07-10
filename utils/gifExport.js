@@ -6,7 +6,7 @@
 
 // 引入修改后的gif.js库
 const GIF = require('./gif-miniprogram.js');
-const { rootStore } = require('../stores/rootStore');
+const { rootStore } = require('../stores/rootStore.js');
 const { uploadGifToCloud, shareCloudGif, saveCloudGifToAlbum, getCloudFileUrl } = require('./cloudStorage');
 
 /**

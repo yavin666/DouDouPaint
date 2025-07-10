@@ -4,6 +4,7 @@ const { rootStore } = require('../../stores/rootStore')
 const { getRandomShape } = require('../../utils/shapes')
 const { exportGif, showGifOptions } = require('../../utils/gifExport')
 
+
 Page({
   data: {
     currentPen: 'pencil',
@@ -44,6 +45,9 @@ Page({
         setTransparentBackground: 'setTransparentBackground'
       }
     });
+
+    // 初始化画笔类型
+    rootStore.setBrushType(this.data.currentPen || 'pencil');
 
     this.initCanvas();
   },
@@ -193,15 +197,35 @@ Page({
   placePixel(x, y, checkAudio = true) {
     if (!this.ctx || !this.animationController) return;
 
-    // 设置当前画笔类型
-    rootStore.setBrushType(this.data.currentPen);
+    // 获取当前画笔配置
+    const pen = this.data.pens[this.data.currentPen];
 
-    // 使用画笔管理器绘制
-    const result = rootStore.addPixel(x, y, null, getRandomShape(), null, this.data.currentPen);
+    // 判断是否为橡皮擦
+    if (pen.isEraser || this.data.currentPen === 'eraser') {
+      // 使用橡皮擦功能
+      const currentBrushSize = rootStore.drawingConfig.brushSizes[rootStore.drawingConfig.currentBrushSize];
+      const eraserRadius = currentBrushSize.size * (currentBrushSize.eraserMultiplier || 2.5);
+      const result = rootStore.erasePixelsInArea(x, y, eraserRadius);
 
-    // 如果是橡皮擦且删除了像素，或者是普通画笔，都需要重新渲染
-    if (result !== null && this.animationController) {
-      this.animationController.renderAllPixels();
+      console.log(`橡皮擦删除了 ${result} 个像素`);
+
+      // 重新渲染
+      if (this.animationController) {
+        this.animationController.renderAllPixels();
+      }
+    } else {
+      // 使用画笔管理器绘制普通像素
+      const result = rootStore.brushManager.draw(
+        x,
+        y,
+        getRandomShape(),
+        rootStore.pixelStore
+      );
+
+      // 重新渲染
+      if (result !== null && this.animationController) {
+        this.animationController.renderAllPixels();
+      }
     }
 
     // 确保动画循环启动
@@ -226,14 +250,18 @@ Page({
   // 切换画笔
   changePen: function (e) {
     const pen = e.currentTarget.dataset.pen;
-    this.setData({ currentPen: pen });
 
-    // 使用新的画笔系统设置画笔类型
-    rootStore.setBrushType(pen);
+    // 只在画笔真正改变时才设置
+    if (this.data.currentPen !== pen) {
+      this.setData({ currentPen: pen });
 
-    // 获取画笔信息并打印
-    const brushInfo = rootStore.getCurrentBrushInfo();
-    console.log(`切换到画笔: ${brushInfo?.name || pen}`);
+      // 使用新的画笔系统设置画笔类型
+      rootStore.setBrushType(pen);
+
+      // 获取画笔信息并打印
+      const brushInfo = rootStore.getCurrentBrushInfo();
+      console.log(`切换到画笔: ${brushInfo?.name || pen}`);
+    }
   },
 
   // 切换画笔大小

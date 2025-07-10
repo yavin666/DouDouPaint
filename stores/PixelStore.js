@@ -68,11 +68,17 @@ class pixelStore {
     
     // 添加到活跃像素集合
     this.activePixels.set(pixelId, pixel)
+
+    // 添加到对应的分层存储
+    if (this.pixelLayers[penType]) {
+      this.pixelLayers[penType].set(pixelId, pixel)
+    }
+
     this.totalPixelCount++
-    
+
     // 添加脏区域
     this.addDirtyRegion(x - 10, y - 10, 20, 20)
-    
+
     return pixelId
   }
   
@@ -83,7 +89,15 @@ class pixelStore {
     // 移除最老的活跃像素
     if (this.activePixels.size > 0) {
       const oldestId = this.activePixels.keys().next().value
+      const pixel = this.activePixels.get(oldestId)
+
+      // 从活跃像素中删除
       this.activePixels.delete(oldestId)
+
+      // 从对应的分层存储中删除
+      if (pixel && pixel.penType && this.pixelLayers[pixel.penType]) {
+        this.pixelLayers[pixel.penType].delete(oldestId)
+      }
     }
   }
   
@@ -92,6 +106,12 @@ class pixelStore {
    */
   clearAllPixels() {
     this.activePixels.clear()
+
+    // 清空所有分层存储
+    for (const layer in this.pixelLayers) {
+      this.pixelLayers[layer].clear()
+    }
+
     this.totalPixelCount = 0
     this.dirtyRegions = []
   }
@@ -119,46 +139,15 @@ class pixelStore {
 
     // 删除标记的像素
     pixelsToRemove.forEach(pixelId => {
+      const pixel = this.activePixels.get(pixelId)
+
+      // 从活跃像素中删除
       this.activePixels.delete(pixelId)
-    })
 
-    // 如果删除了像素，添加脏区域
-    if (pixelsToRemove.length > 0) {
-      this.addDirtyRegion(
-        centerX - radius - 10,
-        centerY - radius - 10,
-        (radius + 10) * 2,
-        (radius + 10) * 2
-      )
-    }
-
-    return pixelsToRemove.length
-  }
-
-  /**
-   * 删除指定区域内的像素（橡皮擦功能）
-   * @param {number} centerX - 橡皮擦中心x坐标
-   * @param {number} centerY - 橡皮擦中心y坐标
-   * @param {number} radius - 橡皮擦半径
-   */
-  erasePixelsInArea(centerX, centerY, radius) {
-    const pixelsToRemove = []
-
-    // 遍历所有活跃像素，找到在橡皮擦范围内的像素
-    for (const [pixelId, pixel] of this.activePixels) {
-      const dx = pixel.x - centerX
-      const dy = pixel.y - centerY
-      const distance = Math.sqrt(dx * dx + dy * dy)
-
-      // 如果像素在橡皮擦范围内，标记为删除
-      if (distance <= radius) {
-        pixelsToRemove.push(pixelId)
+      // 从对应的分层存储中删除
+      if (pixel && pixel.penType && this.pixelLayers[pixel.penType]) {
+        this.pixelLayers[pixel.penType].delete(pixelId)
       }
-    }
-
-    // 删除标记的像素
-    pixelsToRemove.forEach(pixelId => {
-      this.activePixels.delete(pixelId)
     })
 
     // 如果删除了像素，添加脏区域
@@ -173,6 +162,8 @@ class pixelStore {
 
     return pixelsToRemove.length
   }
+
+
   
   /**
    * 更新活跃像素（动画帧更新）

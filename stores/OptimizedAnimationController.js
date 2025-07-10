@@ -81,6 +81,7 @@ class optimizedAnimationController {
   
   /**
    * 渲染所有像素（分层渲染版本）
+   * 按照 荧光笔(glow) -> 马克笔(marker) -> 铅笔(pencil) 的顺序渲染
    */
   renderAllPixels() {
     if (!this.displayCtx) return
@@ -89,12 +90,12 @@ class optimizedAnimationController {
     this.clearMainCanvas()
 
     // 按层级顺序渲染像素（从底层到顶层）
-    const layerOrder = this.pixelStore.getPixelsByRenderOrder()
+    const renderOrder = ['glow', 'marker', 'pencil']
 
-    for (const { layer, pixels } of layerOrder) {
-      // 只渲染有像素的层级
-      if (pixels && pixels.size > 0) {
-        for (const [, pixel] of pixels) {
+    for (const layerType of renderOrder) {
+      const layerPixels = this.pixelStore.getPixelsByLayer(layerType)
+      if (layerPixels && layerPixels.size > 0) {
+        for (const [, pixel] of layerPixels) {
           pixel.draw(this.displayCtx)
         }
       }
