@@ -10,7 +10,7 @@ class RootStore {
     // 初始化子Store
     this.pixelStore = new pixelStore()
     this.animationController = null
-    
+
     // 画布配置
     this.canvasConfig = {
       width: 375,
@@ -18,7 +18,7 @@ class RootStore {
       backgroundColor: '#FFFFFF',
       isTransparent: false // 透明背景开关
     }
-    
+
     // 绘制配置（持续动画优化 + 画笔大小）
     this.drawingConfig = {
       currentPen: 'pencil',
@@ -38,6 +38,11 @@ class RootStore {
       lastX: 0,
       lastY: 0
     }
+
+    // 初始化画笔管理器
+    this.brushManager = new BrushManager(this.drawingConfig)
+    // 初始化画笔管理器
+    this.brushManager = new BrushManager(this.drawingConfig)
 
     // 使用 makeAutoObservable 让整个对象变为响应式
     makeAutoObservable(this)
@@ -85,8 +90,31 @@ class RootStore {
   setBrushSize(size) {
     if (this.drawingConfig.brushSizes[size]) {
       this.drawingConfig.currentBrushSize = size
+      this.brushManager.setBrushSize(size)
       console.log(`画笔大小切换为: ${this.drawingConfig.brushSizes[size].label}`)
     }
+  }
+
+  /**
+   * 设置当前画笔类型
+   */
+  setBrushType(brushType) {
+    this.drawingConfig.currentPen = brushType
+    this.brushManager.setBrush(brushType)
+  }
+
+  /**
+   * 获取当前画笔信息
+   */
+  getCurrentBrushInfo() {
+    return this.brushManager.getCurrentBrush()?.getBrushInfo() || null
+  }
+
+  /**
+   * 获取画笔管理器状态
+   */
+  getBrushManagerStatus() {
+    return this.brushManager.getStatus()
   }
 
   /**

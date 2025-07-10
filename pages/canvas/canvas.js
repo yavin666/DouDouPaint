@@ -185,7 +185,7 @@ Page({
   },
   
   /**
-   * 在指定位置放置一个抖动像素或使用橡皮擦
+   * 在指定位置放置一个抖动像素或使用橡皮擦（使用新的画笔系统）
    * @param {number} x - 像素x坐标
    * @param {number} y - 像素y坐标
    * @param {boolean} [checkAudio=true] - 是否检查音频播放条件
@@ -193,22 +193,15 @@ Page({
   placePixel(x, y, checkAudio = true) {
     if (!this.ctx || !this.animationController) return;
 
-    const pen = this.data.pens[this.data.currentPen];
-    const brushSize = rootStore.getCurrentBrushSize();
+    // 设置当前画笔类型
+    rootStore.setBrushType(this.data.currentPen);
 
-    // 检查是否是橡皮擦模式
-    if (pen.isEraser) {
-      // 橡皮擦模式：删除指定区域的像素
-      const eraserRadius = brushSize.size * 3; // 橡皮擦半径比画笔大一些
-      const erasedCount = rootStore.erasePixelsInArea(x, y, eraserRadius);
+    // 使用画笔管理器绘制
+    const result = rootStore.addPixel(x, y, null, getRandomShape(), null, this.data.currentPen);
 
-      // 如果删除了像素，重新渲染
-      if (erasedCount > 0 && this.animationController) {
-        this.animationController.renderAllPixels();
-      }
-    } else {
-      // 普通画笔模式：添加像素
-      rootStore.addPixel(x, y, pen.color, getRandomShape(), brushSize, this.data.currentPen);
+    // 如果是橡皮擦且删除了像素，或者是普通画笔，都需要重新渲染
+    if (result !== null && this.animationController) {
+      this.animationController.renderAllPixels();
     }
 
     // 确保动画循环启动
@@ -216,13 +209,15 @@ Page({
       this.animationController.startAnimation();
     }
 
-    // 只有在需要检查音频条件时才执行
+    // 播放音效
     if (checkAudio) {
       // 控制音频播放频率
       this.data.audioCounter++;
       if (this.data.audioCounter >= this.data.audioInterval) {
-        // 播放音效
-        this.playAudio(pen.audio);
+        // 使用画笔管理器播放音效
+        rootStore.brushManager.playCurrentBrushAudio((audioPath) => {
+          this.playAudio(audioPath);
+        });
         this.data.audioCounter = 0; // 重置计数器
       }
     }
@@ -232,6 +227,13 @@ Page({
   changePen: function (e) {
     const pen = e.currentTarget.dataset.pen;
     this.setData({ currentPen: pen });
+
+    // 使用新的画笔系统设置画笔类型
+    rootStore.setBrushType(pen);
+
+    // 获取画笔信息并打印
+    const brushInfo = rootStore.getCurrentBrushInfo();
+    console.log(`切换到画笔: ${brushInfo?.name || pen}`);
   },
 
   // 切换画笔大小

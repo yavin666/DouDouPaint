@@ -80,7 +80,7 @@ class optimizedAnimationController {
   }
   
   /**
-   * 渲染所有像素（简化版本）
+   * 渲染所有像素（分层渲染版本）
    */
   renderAllPixels() {
     if (!this.displayCtx) return
@@ -88,9 +88,16 @@ class optimizedAnimationController {
     // 清除画布
     this.clearMainCanvas()
 
-    // 绘制所有活跃像素（所有像素都保持抖动）
-    for (const [, pixel] of this.pixelStore.activePixels) {
-      pixel.draw(this.displayCtx)
+    // 按层级顺序渲染像素（从底层到顶层）
+    const layerOrder = this.pixelStore.getPixelsByRenderOrder()
+
+    for (const { layer, pixels } of layerOrder) {
+      // 只渲染有像素的层级
+      if (pixels && pixels.size > 0) {
+        for (const [, pixel] of pixels) {
+          pixel.draw(this.displayCtx)
+        }
+      }
     }
   }
   

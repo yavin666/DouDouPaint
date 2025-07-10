@@ -203,6 +203,27 @@ class pixelStore {
   clearDirtyRegions() {
     this.dirtyRegions = []
   }
+
+  /**
+   * 按层级获取像素（用于分层渲染）
+   * @param {string} layerType - 层级类型 (glow/marker/pencil)
+   * @returns {Map} 该层级的像素集合
+   */
+  getPixelsByLayer(layerType) {
+    return this.pixelLayers[layerType] || new Map()
+  }
+
+  /**
+   * 获取所有层级的像素（按渲染顺序）
+   * @returns {Array} 按渲染顺序排列的层级数组
+   */
+  getPixelsByRenderOrder() {
+    return [
+      { layer: 'glow', pixels: this.pixelLayers.glow },
+      { layer: 'marker', pixels: this.pixelLayers.marker },
+      { layer: 'pencil', pixels: this.pixelLayers.pencil }
+    ]
+  }
 }
 
-module.exports = { pixelStore: pixelStore, pixelStore: pixelStore }
+module.exports = { pixelStore }
