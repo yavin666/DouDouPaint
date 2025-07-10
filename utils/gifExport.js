@@ -7,6 +7,7 @@
 // 引入修改后的gif.js库
 const GIF = require('./gif-miniprogram.js');
 const { rootStore } = require('../stores/rootStore');
+const { uploadGifToCloud, shareCloudGif, saveCloudGifToAlbum, getCloudFileUrl } = require('./cloudStorage');
 
 /**
  * 捕获多帧画布内容用于GIF生成
@@ -230,23 +231,327 @@ async function exportGif(page, options = {}) {
 }
 
 /**
- * 保存GIF到相册（需要用户授权）
+ * 打开GIF文件供用户查看和保存
  * @param {string} gifPath - GIF文件路径
  */
-async function saveGifToAlbum(gifPath) {
+async function openGifFile(gifPath) {
   try {
-    // 由于微信小程序不支持直接保存GIF到相册
-    // 这里提供文件路径供用户分享或其他操作
+    // 使用wx.openDocument打开GIF文件
+    await new Promise((resolve, reject) => {
+      wx.openDocument({
+        filePath: gifPath,
+        showMenu: true, // 显示右上角菜单，允许用户转发保存
+        success: (res) => {
+          console.log('GIF文件打开成功');
+          resolve(res);
+        },
+        fail: (error) => {
+          console.error('打开GIF文件失败:', error);
+          reject(error);
+        }
+      });
+    });
+  } catch (error) {
+    console.error('打开GIF文件失败:', error);
+
+    // 如果打开失败，显示提示信息
     wx.showModal({
       title: 'GIF生成成功',
-      content: `GIF文件已保存到本地，路径：${gifPath}\n\n注意：微信小程序暂不支持直接保存GIF到相册，您可以通过分享功能发送给好友。`,
+      content: `GIF文件已保存到本地临时目录。\n\n由于系统限制，无法直接预览GIF文件，但文件已成功生成。您可以通过其他方式访问该文件。`,
+      showCancel: true,
+      confirmText: '查看路径',
+      cancelText: '知道了',
+      success: (res) => {
+        if (res.confirm) {
+          // 显示文件路径
+          wx.showModal({
+            title: '文件路径',
+            content: gifPath,
+            showCancel: false,
+            confirmText: '复制路径',
+            success: (modalRes) => {
+              if (modalRes.confirm) {
+                wx.setClipboardData({
+                  data: gifPath,
+                  success: () => {
+                    wx.showToast({
+                      title: '路径已复制',
+                      icon: 'success'
+                    });
+                  }
+                });
+              }
+            }
+          });
+        }
+      }
+    });
+  }
+}
+
+/**
+ * 创建可分享的GIF文件
+ * @param {string} gifPath - 本地GIF文件路径
+ * @returns {Promise<string>} 可分享的文件路径
+ */
+async function createShareableGif(gifPath) {
+  try {
+    // 读取GIF文件数据
+    const fm = wx.getFileSystemManager();
+    const gifData = await new Promise((resolve, reject) => {
+      fm.readFile({
+        filePath: gifPath,
+        encoding: 'binary',
+        success: (res) => resolve(res.data),
+        fail: reject
+      });
+    });
+
+    // 创建一个新的临时文件用于分享
+    const shareablePath = `${wx.env.USER_DATA_PATH}/share_doudou_paint_${Date.now()}.gif`;
+    await new Promise((resolve, reject) => {
+      fm.writeFile({
+        filePath: shareablePath,
+        data: gifData,
+        encoding: 'binary',
+        success: resolve,
+        fail: reject
+      });
+    });
+
+    return shareablePath;
+  } catch (error) {
+    console.error('创建可分享GIF失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 显示GIF操作选项（云开发版本）
+ * @param {string} gifPath - 本地GIF文件路径
+ */
+async function showGifOptions(gifPath) {
+  return new Promise((resolve) => {
+    wx.showActionSheet({
+      itemList: ['本地预览', '上传到云端', '查看文件信息'],
+      success: async (res) => {
+        try {
+          switch (res.tapIndex) {
+            case 0: // 本地预览
+              await openGifFile(gifPath);
+              break;
+
+            case 1: // 上传到云端
+              try {
+                await uploadAndShareGif(gifPath);
+              } catch (error) {
+                wx.showToast({
+                  title: '上传失败',
+                  icon: 'none'
+                });
+              }
+              break;
+
+            case 2: // 查看文件信息
+              await showFileInfo(gifPath);
+              break;
+          }
+        } catch (error) {
+          console.error('操作失败:', error);
+          wx.showToast({
+            title: '操作失败',
+            icon: 'none'
+          });
+        }
+        resolve();
+      },
+      fail: () => resolve()
+    });
+  });
+}
+
+/**
+ * 上传GIF到云端并显示分享选项
+ * @param {string} localGifPath - 本地GIF文件路径
+ */
+async function uploadAndShareGif(localGifPath) {
+  try {
+    // 上传到云存储
+    const uploadResult = await uploadGifToCloud(localGifPath);
+
+    if (uploadResult.success) {
+      // 显示云端操作选项
+      await showCloudGifOptions(uploadResult.fileID, uploadResult.fileName);
+    } else {
+      throw new Error('上传失败');
+    }
+
+  } catch (error) {
+    console.error('上传GIF失败:', error);
+    wx.showModal({
+      title: '上传失败',
+      content: `无法上传到云端: ${error.message}\n\n您可以选择本地预览或查看文件信息。`,
       showCancel: false,
       confirmText: '知道了'
     });
+  }
+}
+
+/**
+ * 显示云端GIF操作选项
+ * @param {string} fileID - 云存储文件ID
+ * @param {string} fileName - 文件名
+ */
+async function showCloudGifOptions(fileID, fileName) {
+  return new Promise((resolve) => {
+    wx.showActionSheet({
+      itemList: ['分享给好友', '保存到本地', '获取分享链接', '删除云端文件'],
+      success: async (res) => {
+        try {
+          switch (res.tapIndex) {
+            case 0: // 分享给好友
+              try {
+                const shareInfo = await shareCloudGif(fileID, fileName);
+                // 触发页面分享
+                wx.showModal({
+                  title: '分享提示',
+                  content: '请点击右上角菜单选择"转发"来分享您的GIF作品！',
+                  showCancel: false,
+                  confirmText: '知道了'
+                });
+
+                // 将分享信息存储到全局，供页面分享使用
+                getApp().globalData = getApp().globalData || {};
+                getApp().globalData.shareInfo = shareInfo;
+
+              } catch (error) {
+                wx.showToast({
+                  title: '准备分享失败',
+                  icon: 'none'
+                });
+              }
+              break;
+
+            case 1: // 保存到本地
+              try {
+                await saveCloudGifToAlbum(fileID);
+              } catch (error) {
+                wx.showToast({
+                  title: '保存失败',
+                  icon: 'none'
+                });
+              }
+              break;
+
+            case 2: // 获取分享链接
+              try {
+                const tempUrl = await getCloudFileUrl(fileID);
+                wx.showModal({
+                  title: '分享链接',
+                  content: `文件链接已生成（24小时有效）:\n${tempUrl}`,
+                  showCancel: true,
+                  confirmText: '复制链接',
+                  cancelText: '关闭',
+                  success: (modalRes) => {
+                    if (modalRes.confirm) {
+                      wx.setClipboardData({
+                        data: tempUrl,
+                        success: () => {
+                          wx.showToast({
+                            title: '链接已复制',
+                            icon: 'success'
+                          });
+                        }
+                      });
+                    }
+                  }
+                });
+              } catch (error) {
+                wx.showToast({
+                  title: '获取链接失败',
+                  icon: 'none'
+                });
+              }
+              break;
+
+            case 3: // 删除云端文件
+              wx.showModal({
+                title: '确认删除',
+                content: '确定要删除云端的GIF文件吗？删除后无法恢复。',
+                success: async (modalRes) => {
+                  if (modalRes.confirm) {
+                    try {
+                      await deleteCloudFile(fileID);
+                      wx.showToast({
+                        title: '删除成功',
+                        icon: 'success'
+                      });
+                    } catch (error) {
+                      wx.showToast({
+                        title: '删除失败',
+                        icon: 'none'
+                      });
+                    }
+                  }
+                }
+              });
+              break;
+          }
+        } catch (error) {
+          console.error('云端操作失败:', error);
+          wx.showToast({
+            title: '操作失败',
+            icon: 'none'
+          });
+        }
+        resolve();
+      },
+      fail: () => resolve()
+    });
+  });
+}
+
+/**
+ * 显示文件信息
+ * @param {string} filePath - 文件路径
+ */
+async function showFileInfo(filePath) {
+  try {
+    const fm = wx.getFileSystemManager();
+    const stats = await new Promise((resolve, reject) => {
+      fm.stat({
+        path: filePath,
+        success: resolve,
+        fail: reject
+      });
+    });
+
+    const fileSizeKB = Math.round(stats.size / 1024);
+    const createTime = new Date(stats.lastModifiedTime).toLocaleString();
+
+    wx.showModal({
+      title: 'GIF文件信息',
+      content: `文件大小: ${fileSizeKB}KB\n创建时间: ${createTime}\n文件路径: ${filePath}`,
+      showCancel: true,
+      confirmText: '复制路径',
+      cancelText: '关闭',
+      success: (modalRes) => {
+        if (modalRes.confirm) {
+          wx.setClipboardData({
+            data: filePath,
+            success: () => {
+              wx.showToast({
+                title: '路径已复制',
+                icon: 'success'
+              });
+            }
+          });
+        }
+      }
+    });
   } catch (error) {
-    console.error('保存GIF失败:', error);
     wx.showToast({
-      title: '保存失败',
+      title: '获取文件信息失败',
       icon: 'none'
     });
   }
@@ -256,5 +561,10 @@ module.exports = {
   captureFramesForGif,
   generateGif,
   exportGif,
-  saveGifToAlbum
+  openGifFile,
+  createShareableGif,
+  showGifOptions,
+  uploadAndShareGif,
+  showCloudGifOptions,
+  showFileInfo
 }
