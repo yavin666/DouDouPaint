@@ -35,23 +35,23 @@ class MarkerBrush extends BaseBrush {
   }
 
   /**
-   * 创建像素 - 马克笔椭圆形大色块效果
+   * 创建像素 - 优化的马克笔整体色块效果
    * @param {number} x - x坐标
    * @param {number} y - y坐标
-   * @param {Array} frameData - 帧数据（将被替换为椭圆色块抖动数据）
+   * @param {Array} frameData - 帧数据（将被替换为优化的色块抖动数据）
    * @param {Object} brushSize - 画笔大小配置
    * @param {Object} pixelStore - 像素存储对象
    * @returns {string} 像素ID
    */
   createPixel(x, y, frameData, brushSize, pixelStore) {
-    // 创建椭圆形色块的抖动帧数据
-    const markerFrameData = this.generateSingleBlockFrames(brushSize)
+    // 使用预计算的椭圆形色块帧数据，避免每次重新计算
+    const markerFrameData = this.getOptimizedMarkerFrames(brushSize)
 
-    // 使用较小的像素尺寸，因为我们通过多个像素点组成椭圆形
-    const pixelSize = Math.max(2, Math.floor(brushSize.size / 2))
+    // 使用更大的像素尺寸来绘制厚重的色块效果
+    const pixelSize = Math.max(3, Math.floor(brushSize.size * 0.8))
     const adjustedBrushSize = {
       ...brushSize,
-      size: pixelSize // 单个像素点的尺寸
+      size: pixelSize // 增大像素点尺寸，创建厚重色块
     }
 
     // 添加到像素存储
@@ -67,61 +67,97 @@ class MarkerBrush extends BaseBrush {
   }
 
   /**
-   * 生成椭圆形大色块的抖动帧数据
-   * 创建椭圆形状的像素点组合来模拟马克笔效果
+   * 获取优化的马克笔帧数据（使用缓存避免重复计算）
    * @param {Object} brushSize - 画笔大小配置
-   * @returns {Array} 椭圆形色块的抖动帧数据
+   * @returns {Array} 优化的椭圆形色块抖动帧数据
    */
-  generateSingleBlockFrames(brushSize) {
-    const blockSize = this.calculateBlockSize(brushSize)
+  getOptimizedMarkerFrames(brushSize) {
+    const sizeKey = `${brushSize.size}_${brushSize.label || 'default'}`
 
-    // 生成椭圆形色块的像素点
-    const ellipsePixels = this.generateEllipsePixels(blockSize)
+    // 使用缓存避免重复计算
+    if (!this.frameCache) {
+      this.frameCache = new Map()
+    }
 
-    // 减少抖动幅度，让色块更稳定，只保留轻微的动态效果
+    if (this.frameCache.has(sizeKey)) {
+      return this.frameCache.get(sizeKey)
+    }
+
+    // 生成简化的椭圆色块帧数据
+    const optimizedFrames = this.generateOptimizedMarkerFrames(brushSize)
+    this.frameCache.set(sizeKey, optimizedFrames)
+
+    return optimizedFrames
+  }
+
+  /**
+   * 生成优化的马克笔帧数据（减少像素点数量）
+   * @param {Object} brushSize - 画笔大小配置
+   * @returns {Array} 优化的帧数据
+   */
+  generateOptimizedMarkerFrames(brushSize) {
+    // 增大马克笔色块尺寸，使其更明显
+    const baseSize = Math.max(6, brushSize.size * 1.5)
+
+    // 生成更大的椭圆形像素点，确保色块效果
+    const ellipsePixels = this.generateSmoothEllipse(baseSize)
+
+    // 简化的3帧抖动动画
     const frames = [
-      // 第0帧 - 基础位置的椭圆
-      ellipsePixels,
-      // 第1帧 - 轻微向左偏移
-      ellipsePixels.map(([x, y]) => [x - 0.5, y]),
-      // 第2帧 - 轻微向右偏移
-      ellipsePixels.map(([x, y]) => [x + 0.5, y]),
-      // 第3帧 - 回到基础位置
-      ellipsePixels
+      ellipsePixels,                                           // 第0帧 - 基础位置
+      ellipsePixels.map(([x, y]) => [x - 0.2, y]),           // 第1帧 - 轻微左移
+      ellipsePixels.map(([x, y]) => [x + 0.2, y])            // 第2帧 - 轻微右移
     ]
 
     return frames
   }
 
   /**
-   * 生成椭圆形像素点
+   * 生成平滑的椭圆形像素点（大色块，边缘平滑）
    * @param {number} size - 色块大小
-   * @returns {Array} 椭圆形像素点坐标数组
+   * @returns {Array} 平滑椭圆形像素点坐标数组
    */
-  generateEllipsePixels(size) {
+  generateSmoothEllipse(size) {
     const pixels = []
 
-    // 椭圆参数：横向更长，模拟马克笔的扁平效果
-    const radiusX = Math.max(4, Math.floor(size * 0.9)) // 横向半径，增大以获得更饱满的色块
-    const radiusY = Math.max(3, Math.floor(size * 0.5)) // 纵向半径，增大以获得更饱满的色块
+    // 增大椭圆参数，创建更大的色块
+    const radiusX = Math.max(5, Math.floor(size * 1.2)) // 更大的横向半径
+    const radiusY = Math.max(3, Math.floor(size * 0.7)) // 更大的纵向半径
 
-    // 生成椭圆形像素点 - 使用更严格的椭圆方程确保边缘干净
-    for (let x = -radiusX; x <= radiusX; x++) {
-      for (let y = -radiusY; y <= radiusY; y++) {
+    // 使用更宽松的椭圆方程，创建更饱满的色块
+    for (let x = -radiusX; x <= radiusX; x += 1) {
+      for (let y = -radiusY; y <= radiusY; y += 1) {
         // 椭圆方程：(x/a)² + (y/b)² <= 1
-        // 使用稍微宽松的阈值(1.1)来确保椭圆边缘完整填充
+        // 使用更宽松的阈值(1.2)来创建更饱满的边缘
         const ellipseValue = (x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY)
 
-        if (ellipseValue <= 1.1) {
+        if (ellipseValue <= 1.2) {
           pixels.push([x, y])
         }
       }
     }
 
-    // 移除随机边缘处理，保持干净的椭圆形状
-    // this.addRandomEdgePixels(pixels, radiusX, radiusY) // 注释掉毛糙边缘处理
-
     return pixels
+  }
+
+  /**
+   * 生成简化的椭圆形像素点（性能优化版，保持色块效果）
+   * @param {number} size - 色块大小
+   * @returns {Array} 简化的椭圆形像素点坐标数组
+   */
+  generateSimplifiedEllipse(size) {
+    // 现在直接调用平滑版本
+    return this.generateSmoothEllipse(size)
+  }
+
+  /**
+   * 生成椭圆形像素点（保留原方法用于兼容）
+   * @param {number} size - 色块大小
+   * @returns {Array} 椭圆形像素点坐标数组
+   */
+  generateEllipsePixels(size) {
+    // 现在直接调用简化版本
+    return this.generateSimplifiedEllipse(size)
   }
 
   /**

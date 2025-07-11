@@ -54,11 +54,9 @@ Page({
   },
 
   /**
-   * 初始化画布
-   * 简化版本，使用 rpx 单位实现响应式布局
+   * 初始化画布 - 简化版本
    */
   initCanvas() {
-    // 创建画布上下文
     const query = wx.createSelectorQuery();
     query.select('#myCanvas')
       .fields({ node: true, size: true, rect: true })
@@ -71,20 +69,15 @@ Page({
         const canvas = res[0].node;
         const ctx = canvas.getContext('2d');
 
-        // 获取画布在页面中的位置
+        // 获取画布位置和尺寸
         const canvasLeft = res[0].left || 0;
         const canvasTop = res[0].top || 0;
-
-        // 获取画布的实际显示尺寸
         const canvasWidth = res[0].width || 375;
         const canvasHeight = res[0].height || 500;
 
-        // 设置画布内部尺寸（提高清晰度）
-        canvas.width = canvasWidth * 2;
-        canvas.height = canvasHeight * 2;
-
-        // 缩放上下文以匹配高分辨率
-        ctx.scale(2, 2);
+        // 直接设置画布尺寸，不使用高分辨率
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
 
         this.setData({
           canvasLeft: canvasLeft,
@@ -95,7 +88,7 @@ Page({
         this.canvas = canvas;
         this.ctx = ctx;
 
-        // 初始化简化的动画系统
+        // 初始化动画系统
         this.animationStore = rootStore.initAnimationSystem(
           canvasWidth,
           canvasHeight,
@@ -112,21 +105,24 @@ Page({
       });
   },
   
-  // 阻止页面滚动
-  preventPageScroll() {
-    return false;
-  },
+
   
   /**
    * 开始绘画
    * 处理触摸开始事件，计算触摸点坐标并开始绘制
    */
   touchStart: function (e) {
+    // 阻止事件冒泡和默认行为
+    e.preventDefault && e.preventDefault();
+    e.stopPropagation && e.stopPropagation();
+
+    if (!e.touches || e.touches.length === 0) return;
+
     const touch = e.touches[0];
     // 计算触摸点相对于画布的坐标，考虑页面滚动
     const x = touch.pageX - this.data.canvasLeft;
     const y = touch.pageY - this.data.canvasTop;
-    
+
     this.setData({
       lastX: x,
       lastY: y,
@@ -134,16 +130,16 @@ Page({
       audioCounter: 0 // 重置音频计数器
     });
     this.vibrate();
-    
+
     // 初始化上次音频播放时间（如果未设置）
     if (!this.data.lastAudioTime) {
       this.data.lastAudioTime = Date.now();
     }
-    
+
     // 触摸开始时总是播放音效
     const pen = this.data.pens[this.data.currentPen];
     this.playAudio(pen.audio);
-    
+
     this.placePixel(x, y);
   },
   
@@ -152,7 +148,12 @@ Page({
    * 处理触摸移动事件，简化版本
    */
   touchMove: function (e) {
+    // 阻止事件冒泡和默认行为
+    e.preventDefault && e.preventDefault();
+    e.stopPropagation && e.stopPropagation();
+
     if (!this.data.isDrawing) return;
+    if (!e.touches || e.touches.length === 0) return;
 
     const touch = e.touches[0];
     const x = touch.pageX - this.data.canvasLeft;
@@ -185,8 +186,23 @@ Page({
   },
   
   // 结束绘画
-  touchEnd: function () {
+  touchEnd: function (e) {
+    // 阻止事件冒泡和默认行为
+    e.preventDefault && e.preventDefault();
+    e.stopPropagation && e.stopPropagation();
+
     this.setData({ isDrawing: false });
+  },
+
+  // 触摸取消事件处理
+  touchCancel: function (e) {
+    // 阻止事件冒泡和默认行为
+    e.preventDefault && e.preventDefault();
+    e.stopPropagation && e.stopPropagation();
+
+    // 触摸被取消时也要停止绘画
+    this.setData({ isDrawing: false });
+    console.log('触摸事件被取消');
   },
   
   /**
@@ -332,39 +348,7 @@ Page({
     });
   },
   
-  // 导出GIF（保持兼容，但推荐使用新的简化导出）
-  saveAsGif: async function() {
-    if (!this.canvas || !this.animationStore) {
-      wx.showToast({ title: '画布未初始化', icon: 'none' });
-      return;
-    }
 
-    // 检查是否有绘制内容 - 通过rootStore访问pixelStore
-    if (!rootStore.pixelStore.activePixels || rootStore.pixelStore.activePixels.size === 0) {
-      wx.showToast({ title: '请先绘制一些内容', icon: 'none' });
-      return;
-    }
-
-    try {
-      // 显示配置选择对话框
-      const options = await this.showGifOptions();
-      if (!options) return; // 用户取消
-
-      // 导出GIF
-      const gifPath = await exportGif(this, options);
-
-      // 显示GIF操作选项
-      await showGifOptions(gifPath);
-
-    } catch (error) {
-      console.error('GIF导出失败', error);
-      wx.showToast({
-        title: error.message || '导出失败',
-        icon: 'none',
-        duration: 2000
-      });
-    }
-  },
 
   // 新的简化导出方法 - 导出帧数据给后端
   exportFramesToBackend: async function() {
@@ -377,20 +361,20 @@ Page({
     showFrameExportOptions(this);
   },
 
-  // 新的云开发GIF导出功能
+  // 云开发GIF导出功能 - 固定3帧
   exportGifWithCloud: async function() {
     if (!this.canvas || !this.animationStore) {
       wx.showToast({ title: '画布未初始化', icon: 'none' });
       return;
     }
 
-    // 检查是否有像素
+    // 检查是否有绘制内容
     if (this.animationStore.pixelStore.activePixels.size === 0) {
       wx.showToast({ title: '画布为空，请先绘制内容', icon: 'none' });
       return;
     }
 
-    // 显示确认对话框
+    // 简化确认对话框
     const confirmed = await new Promise(resolve => {
       wx.showModal({
         title: '生成GIF动画',
@@ -405,32 +389,24 @@ Page({
     if (!confirmed) return;
 
     try {
-      // 第一步：捕获帧并转换为图片
+      // 捕获3帧图片
       wx.showLoading({ title: '正在捕获帧...' });
-      const imagePaths = await this.animationStore.capture3FramesAsImages((progress) => {
-        wx.showLoading({
-          title: `捕获中 ${progress.current}/${progress.total}`
-        });
-      });
+      const imagePaths = await this.animationStore.capture3FramesAsImages();
 
       if (imagePaths.length === 0) {
         throw new Error('未能捕获到有效帧');
       }
 
-      // 第二步：上传图片到云存储
-      wx.showLoading({ title: '正在上传图片...' });
-      const fileIds = await this.animationStore.frameCapture.uploadImagesToCloud(imagePaths, (progress) => {
-        wx.showLoading({
-          title: `上传中 ${progress.current}/${progress.total} (${progress.progress}%)`
-        });
-      });
+      // 上传到云存储
+      wx.showLoading({ title: '正在上传...' });
+      const fileIds = await this.animationStore.frameCapture.uploadImagesToCloud(imagePaths);
 
-      // 第三步：调用云函数合成GIF
-      wx.showLoading({ title: '正在合成GIF...' });
+      // 调用云函数合成GIF（固定参数）
+      wx.showLoading({ title: '正在生成GIF...' });
       const result = await callGifCloudFunction(fileIds, {
-        delay: 200,
-        repeat: 0,
-        quality: 10
+        delay: 200,    // 固定延迟200ms
+        repeat: 0,     // 无限循环
+        quality: 10    // 固定质量
       });
 
       wx.hideLoading();
@@ -438,80 +414,28 @@ Page({
       // 清理临时文件
       try {
         const fm = wx.getFileSystemManager();
-        imagePaths.forEach(path => {
-          fm.unlinkSync(path);
-        });
+        imagePaths.forEach(path => fm.unlinkSync(path));
       } catch (error) {
         console.warn('清理临时文件失败:', error);
       }
 
-      // 显示成功提示
-      wx.showToast({
-        title: 'GIF生成成功',
-        icon: 'success'
-      });
-
-      // 显示操作选项
+      // 显示成功提示并展示操作选项
+      wx.showToast({ title: 'GIF生成成功', icon: 'success' });
       await showCloudGifOptions(result);
 
     } catch (error) {
       wx.hideLoading();
-      console.error('云开发GIF导出失败:', error);
+      console.error('GIF导出失败:', error);
 
-      // 显示详细错误信息
-      wx.showModal({
-        title: 'GIF生成失败',
-        content: `错误原因：${error.message || '未知错误'}\n\n请检查网络连接或稍后重试。`,
-        showCancel: false,
-        confirmText: '知道了'
+      wx.showToast({
+        title: error.message || 'GIF生成失败',
+        icon: 'none',
+        duration: 2000
       });
     }
   },
 
-  // 显示GIF配置选项
-  showGifOptions: function() {
-    return new Promise((resolve) => {
-      wx.showActionSheet({
-        itemList: ['快速导出(5帧)', '标准导出(10帧)', '高质量导出(15帧)', '自定义设置'],
-        success: (res) => {
-          const options = [
-            { frames: 5, delay: 300, quality: 15 },   // 快速
-            { frames: 10, delay: 200, quality: 10 },  // 标准
-            { frames: 15, delay: 150, quality: 8 },   // 高质量
-            null // 自定义
-          ];
 
-          if (res.tapIndex === 3) {
-            // 自定义设置
-            this.showCustomGifOptions().then(resolve);
-          } else {
-            resolve(options[res.tapIndex]);
-          }
-        },
-        fail: () => resolve(null)
-      });
-    });
-  },
-
-  // 显示自定义GIF设置
-  showCustomGifOptions: function() {
-    return new Promise((resolve) => {
-      // 简化版本，使用默认设置
-      wx.showModal({
-        title: '自定义GIF设置',
-        content: '帧数: 12帧\n延迟: 180ms\n质量: 中等',
-        confirmText: '确定',
-        cancelText: '取消',
-        success: (res) => {
-          if (res.confirm) {
-            resolve({ frames: 12, delay: 180, quality: 10 });
-          } else {
-            resolve(null);
-          }
-        }
-      });
-    });
-  },
   
   /**
    * 播放音效
@@ -553,7 +477,7 @@ Page({
 
     // 默认分享信息
     return {
-      title: '豆豆画板 - 抖动线条复古画板',
+      title: '抖抖画 - 抖动线条复古画板',
       path: '/pages/canvas/canvas',
       imageUrl: '/static/share-image.png', // 需要添加分享图片
       success: () => {

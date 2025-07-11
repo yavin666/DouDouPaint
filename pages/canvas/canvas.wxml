@@ -1,10 +1,11 @@
 <!--pages/canvas/canvas.wxml-->
-<view class="container" catchtouchmove="preventPageScroll">
+<view class="container">
   <canvas type="2d" id="myCanvas"
     class="main-canvas {{isTransparentBackground ? 'transparent-bg' : ''}}"
-    bindtouchstart="touchStart"
-    bindtouchmove="touchMove"
-    bindtouchend="touchEnd"
+    catchtouchstart="touchStart"
+    catchtouchmove="touchMove"
+    catchtouchend="touchEnd"
+    catchtouchcancel="touchCancel"
     disable-scroll="true">
   </canvas>
   <view class="toolbar">

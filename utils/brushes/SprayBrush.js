@@ -35,84 +35,139 @@ class SprayBrush extends BaseBrush {
   }
 
   /**
-   * 创建喷漆像素（多个随机散点）
+   * 创建喷漆像素（优化版 - 使用预定义图案）
    * @param {number} x - x坐标
    * @param {number} y - y坐标
    * @param {Array} frameData - 帧数据
    * @param {Object} brushSize - 画笔大小配置
    * @param {Object} pixelStore - 像素存储对象
-   * @returns {string} 主像素ID（返回第一个创建的像素ID）
+   * @returns {string} 主像素ID
    */
   createPixel(x, y, frameData, brushSize, pixelStore) {
-    let mainPixelId = null
+    // 使用预定义的喷漆图案，通过旋转实现随机效果
+    const sprayPattern = this.getOptimizedSprayPattern(brushSize)
 
-    // 计算喷涂范围
+    // 随机旋转角度
+    const rotationAngle = Math.random() * Math.PI * 2
+
+    // 应用旋转变换到图案
+    const rotatedPattern = this.rotateSprayPattern(sprayPattern, rotationAngle)
+
+    // 创建单个整体喷漆像素，包含完整的图案数据
+    return this.createSprayPatternPixel(x, y, rotatedPattern, brushSize, pixelStore)
+  }
+
+  /**
+   * 获取优化的喷漆图案（使用缓存）
+   * @param {Object} brushSize - 画笔大小配置
+   * @returns {Array} 喷漆图案坐标数组
+   */
+  getOptimizedSprayPattern(brushSize) {
+    const sizeKey = `spray_${brushSize.size}_${brushSize.label || 'default'}`
+
+    // 使用缓存避免重复计算
+    if (!this.patternCache) {
+      this.patternCache = new Map()
+    }
+
+    if (this.patternCache.has(sizeKey)) {
+      return this.patternCache.get(sizeKey)
+    }
+
+    // 生成基础喷漆图案
+    const pattern = this.generateBaseSprayPattern(brushSize)
+    this.patternCache.set(sizeKey, pattern)
+
+    return pattern
+  }
+
+  /**
+   * 生成基础喷漆图案
+   * @param {Object} brushSize - 画笔大小配置
+   * @returns {Array} 基础图案坐标数组
+   */
+  generateBaseSprayPattern(brushSize) {
+    const pattern = []
     const sprayRadius = brushSize.size * this.sprayConfig.radiusMultiplier
 
-    // 计算本次喷涂的像素数量
-    const pixelCount = Math.floor(
-      Math.random() * (this.sprayConfig.maxPixels - this.sprayConfig.minPixels + 1)
-    ) + this.sprayConfig.minPixels
+    // 生成固定数量的像素点，避免随机数计算
+    const pixelCount = Math.floor(this.sprayConfig.minPixels +
+      (this.sprayConfig.maxPixels - this.sprayConfig.minPixels) * 0.7)
 
-    // 生成随机散点 - 使用更自然的分布算法
+    // 使用预定义的角度分布，避免随机计算
+    const angleStep = (Math.PI * 2) / pixelCount
+
     for (let i = 0; i < pixelCount; i++) {
-      // 随机决定是否创建这个像素（控制密度）
-      if (Math.random() > this.sprayConfig.density) {
-        continue
-      }
-
-      // 使用高斯分布生成更自然的喷漆效果
-      const angle = Math.random() * Math.PI * 2
-
-      // 使用平方根分布使像素更集中在中心，边缘更稀疏
-      const normalizedDistance = Math.sqrt(Math.random())
-      const distance = normalizedDistance * sprayRadius
+      const angle = i * angleStep + (i % 3) * 0.3 // 添加轻微变化
+      const distance = (0.3 + (i % 4) * 0.2) * sprayRadius // 分层分布
 
       const offsetX = Math.cos(angle) * distance
       const offsetY = Math.sin(angle) * distance
 
-      // 添加额外的随机散点效果，模拟真实喷漆的不规则性
-      const scatterX = (Math.random() - 0.5) * this.sprayConfig.scatterRange
-      const scatterY = (Math.random() - 0.5) * this.sprayConfig.scatterRange
-
-      const finalX = Math.round(x + offsetX + scatterX)
-      const finalY = Math.round(y + offsetY + scatterY)
-
-      // 避免像素重叠（检查是否已有像素在相同位置）
-      const pixelKey = `${finalX},${finalY}`
-      if (this.recentPixels && this.recentPixels.has(pixelKey)) {
-        continue
-      }
-
-      // 创建单个像素
-      const pixelId = this.createSingleSprayPixel(
-        finalX,
-        finalY,
-        frameData,
-        brushSize,
-        pixelStore
-      )
-
-      if (pixelId) {
-        // 记录最近创建的像素位置，避免重叠
-        if (!this.recentPixels) {
-          this.recentPixels = new Set()
-        }
-        this.recentPixels.add(pixelKey)
-
-        // 清理旧的像素位置记录（避免内存泄漏）
-        if (this.recentPixels.size > 100) {
-          const firstKey = this.recentPixels.values().next().value
-          this.recentPixels.delete(firstKey)
-        }
-
-        if (!mainPixelId) {
-          mainPixelId = pixelId  // 记录第一个创建的像素ID
-        }
-      }
+      pattern.push([Math.round(offsetX), Math.round(offsetY)])
     }
 
-    return mainPixelId
+    return pattern
+  }
+
+  /**
+   * 旋转喷漆图案
+   * @param {Array} pattern - 原始图案
+   * @param {number} angle - 旋转角度
+   * @returns {Array} 旋转后的图案
+   */
+  rotateSprayPattern(pattern, angle) {
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+
+    return pattern.map(([x, y]) => [
+      Math.round(x * cos - y * sin),
+      Math.round(x * sin + y * cos)
+    ])
+  }
+
+  /**
+   * 创建喷漆图案像素
+   * @param {number} x - x坐标
+   * @param {number} y - y坐标
+   * @param {Array} pattern - 图案数据
+   * @param {Object} brushSize - 画笔大小配置
+   * @param {Object} pixelStore - 像素存储对象
+   * @returns {string} 像素ID
+   */
+  createSprayPatternPixel(x, y, pattern, brushSize, pixelStore) {
+    // 将图案转换为帧数据格式
+    const sprayFrameData = this.convertPatternToFrames(pattern)
+
+    // 创建画笔配置
+    const sprayBrushConfig = {
+      size: this.sprayConfig.pixelSize || 2
+    }
+
+    // 添加到像素存储
+    return pixelStore.addSprayPixel(
+      x,
+      y,
+      this.getEffectiveColor(brushSize),
+      sprayFrameData,
+      sprayBrushConfig,
+      this.getEffectiveOpacity(brushSize),
+      this.brushType
+    )
+  }
+
+  /**
+   * 将图案转换为帧数据格式
+   * @param {Array} pattern - 图案坐标数组
+   * @returns {Array} 帧数据数组
+   */
+  convertPatternToFrames(pattern) {
+    // 生成3帧轻微抖动的图案
+    return [
+      pattern,                                                    // 第0帧 - 基础图案
+      pattern.map(([x, y]) => [x - 0.5, y]),                    // 第1帧 - 轻微左移
+      pattern.map(([x, y]) => [x + 0.5, y])                     // 第2帧 - 轻微右移
+    ]
   }
 
   /**

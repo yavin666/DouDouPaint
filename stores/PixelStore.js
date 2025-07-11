@@ -222,12 +222,15 @@ class pixelStore {
    * 更新活跃像素（动画帧更新）
    */
   updateActivePixels() {
-    // 更新所有活跃像素的帧，保持永久抖动
-    for (const [, pixel] of this.activePixels) {
-      pixel.update()
+    // 批量更新所有活跃像素的帧，减少单独处理的开销
+    const pixelArray = Array.from(this.activePixels.values())
+
+    // 使用批量处理，每次处理一批像素
+    const batchSize = 100
+    for (let i = 0; i < pixelArray.length; i += batchSize) {
+      const batch = pixelArray.slice(i, i + batchSize)
+      batch.forEach(pixel => pixel.update())
     }
-    
-    // 不再将像素移动到静态层，所有像素保持抖动
   }
   
   /**
