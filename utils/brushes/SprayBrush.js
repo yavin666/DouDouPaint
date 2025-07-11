@@ -16,7 +16,7 @@ class SprayBrush extends BaseBrush {
       ...config,
       brushType: BRUSH_TYPES.SPRAY,
       layer: BRUSH_LAYERS.SPRAY,
-      opacity: 0.7,  // 喷漆70%透明度
+      opacity: 1,  // 喷漆70%透明度
       name: '喷漆'
     })
     

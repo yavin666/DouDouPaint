@@ -62,7 +62,8 @@ class WigglePixel {
 }
 
 /**
- * 动画控制器
+ * 动画控制器（性能优化版）
+ * 使用 requestAnimationFrame 替代 setTimeout，提升性能
  */
 class AnimationController {
   /**
@@ -79,7 +80,8 @@ class AnimationController {
     this.backgroundColor = backgroundColor;
     this.activePixels = [];
     this.animationTimer = null;
-    this.frameRate = 100; // 毫秒
+    this.frameInterval = 300; // 3帧抖动，每帧300ms（适合3帧循环）
+    this.lastFrameTime = 0; // 上次更新帧的时间戳
     this.maxPixels = 500; // 限制最大像素数量，防止卡死
   }
 
@@ -111,26 +113,38 @@ class AnimationController {
   }
 
   /**
-   * 启动动画循环
+   * 启动动画循环（性能优化版）
+   * 使用 requestAnimationFrame + 时间控制，避免递归 setTimeout 的性能问题
    */
   startAnimation() {
     if (this.animationTimer) return;
-    
+
     const animate = () => {
-      // 清除画布
-      this.ctx.fillStyle = this.backgroundColor;
-      this.ctx.fillRect(0, 0, this.width, this.height);
-      
-      // 更新并绘制所有像素
-      this.activePixels.forEach(pixel => {
-        pixel.update();
-        pixel.draw(this.ctx);
-      });
-      
-      // 继续动画循环
-      this.animationTimer = setTimeout(animate, this.frameRate);
+      if (!this.animationTimer) return; // 检查是否已停止
+
+      const currentTime = Date.now();
+
+      // 检查是否到了更新帧的时间
+      if (currentTime - this.lastFrameTime >= this.frameInterval) {
+        // 清除画布
+        this.ctx.fillStyle = this.backgroundColor;
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        // 更新并绘制所有像素
+        this.activePixels.forEach(pixel => {
+          pixel.update();
+          pixel.draw(this.ctx);
+        });
+
+        // 更新时间戳
+        this.lastFrameTime = currentTime;
+      }
+
+      // 使用 requestAnimationFrame 继续动画循环，避免递归调用的性能问题
+      this.animationTimer = wx.requestAnimationFrame(animate);
     };
-    
+
+    this.lastFrameTime = Date.now(); // 初始化时间戳
     animate();
   }
 
@@ -139,9 +153,11 @@ class AnimationController {
    */
   stopAnimation() {
     if (this.animationTimer) {
-      clearTimeout(this.animationTimer);
+      // 使用 wx.cancelAnimationFrame 替代 clearTimeout
+      wx.cancelAnimationFrame(this.animationTimer);
       this.animationTimer = null;
     }
+    this.lastFrameTime = 0; // 重置时间戳
   }
 
   /**

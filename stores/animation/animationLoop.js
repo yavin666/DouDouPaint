@@ -3,20 +3,22 @@ const { makeAutoObservable, reaction } = require('mobx-miniprogram')
 /**
  * 动画循环控制器 - 专门负责3帧抖动动画的循环控制
  * 职责单一：只管理动画状态，不负责渲染
+ * 性能优化：使用 requestAnimationFrame 替代 setTimeout，提升性能并减少内存消耗
  */
 class AnimationLoop {
   constructor(pixelStore, frameRenderer) {
     this.pixelStore = pixelStore
     this.frameRenderer = frameRenderer
-    
+
     // 动画状态
     this.isRunning = false
     this.animationId = null
-    this.frameRate = 200 // 3帧抖动，每帧200ms
-    
+    this.frameInterval = 300 // 3帧抖动，每帧300ms（每秒3.33帧，适合3帧循环）
+    this.lastFrameTime = 0 // 上次更新帧的时间戳
+
     // 设置响应式监听
     this.setupReactions()
-    
+
     makeAutoObservable(this)
   }
   
@@ -54,27 +56,38 @@ class AnimationLoop {
   stop() {
     this.isRunning = false
     if (this.animationId) {
-      clearTimeout(this.animationId)
+      // 使用 wx.cancelAnimationFrame 替代 clearTimeout
+      wx.cancelAnimationFrame(this.animationId)
       this.animationId = null
     }
+    this.lastFrameTime = 0 // 重置时间戳
     console.log('3帧抖动动画已停止')
   }
   
   /**
-   * 动画循环（简化版）
+   * 动画循环（性能优化版）
+   * 使用 requestAnimationFrame + 时间控制，避免递归 setTimeout 的性能问题
    */
   animate() {
     if (!this.isRunning) return
-    
+
     try {
-      // 更新所有像素到下一帧
-      this.pixelStore.updateActivePixels()
-      
-      // 渲染当前帧
-      this.frameRenderer.renderFrame(this.pixelStore)
-      
-      // 继续下一帧
-      this.animationId = setTimeout(() => this.animate(), this.frameRate)
+      const currentTime = Date.now()
+
+      // 检查是否到了更新帧的时间
+      if (currentTime - this.lastFrameTime >= this.frameInterval) {
+        // 更新所有像素到下一帧
+        this.pixelStore.updateActivePixels()
+
+        // 渲染当前帧
+        this.frameRenderer.renderFrame(this.pixelStore)
+
+        // 更新时间戳
+        this.lastFrameTime = currentTime
+      }
+
+      // 使用 requestAnimationFrame 继续下一帧，避免递归调用的性能问题
+      this.animationId = wx.requestAnimationFrame(() => this.animate())
     } catch (error) {
       console.error('动画循环错误:', error)
       this.stop()
