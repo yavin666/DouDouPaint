@@ -145,7 +145,7 @@ class SprayBrush extends BaseBrush {
     }
 
     // 添加到像素存储
-    return pixelStore.addSprayPixel(
+    return pixelStore.addPixel(
       x,
       y,
       this.getEffectiveColor(brushSize),
@@ -200,7 +200,7 @@ class SprayBrush extends BaseBrush {
     }
 
     // 添加到像素存储（使用普通层级逻辑）
-    return pixelStore.addSprayPixel(
+    return pixelStore.addPixel(
       x,
       y,
       this.getEffectiveColor(brushSize),
