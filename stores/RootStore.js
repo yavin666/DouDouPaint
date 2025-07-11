@@ -2,6 +2,7 @@ const { makeAutoObservable } = require('mobx-miniprogram')
 const { pixelStore } = require('./pixelStore')
 const { AnimationStore } = require('./animation/animationStore')
 const { BrushManager } = require('../utils/brushes/BrushManager')
+const { CanvasStore } = require('./canvasStore')
 
 /**
  * 根Store，管理所有子Store
@@ -44,6 +45,9 @@ class RootStore {
 
     // 初始化画笔管理器
     this.brushManager = new BrushManager(this.drawingConfig)
+
+    // 画布状态管理Store
+    this.canvasStore = new CanvasStore(this)
 
     // 使用 makeAutoObservable 让整个对象变为响应式
     makeAutoObservable(this)

@@ -1,7 +1,6 @@
 // pages/canvas/canvas.js
 const { createStoreBindings } = require('mobx-miniprogram-bindings')
 const { rootStore } = require('../../stores/rootStore')
-const { getRandomShape } = require('../../config/pixelShapes')
 const { showCloudGifOptions, callGifCloudFunction } = require('../../utils/gifExport')
 const { exportFramesForBackend, showFrameExportOptions } = require('../../utils/frameExport')
 const { TouchInteractionManager } = require('../../utils/TouchInteractionManager')
@@ -24,7 +23,9 @@ Page({
         activePixels: () => rootStore.pixelStore.activePixels.size,
         currentBrushSize: () => rootStore.drawingConfig.currentBrushSize,
         brushSizes: () => rootStore.drawingConfig.brushSizes,
-        isTransparentBackground: () => rootStore.canvasConfig.isTransparent
+        isTransparentBackground: () => rootStore.canvasConfig.isTransparent,
+        canvasInitialized: () => rootStore.canvasStore.canvasState.isInitialized,
+        canvasPerformance: () => rootStore.canvasStore.getPerformanceReport()
       },
       actions: {
         addPixel: 'addPixel',
@@ -75,55 +76,30 @@ Page({
   },
 
   /**
-   * 初始化画布 - 简化版本
+   * 初始化画布 - 使用CanvasStore
    */
-  initCanvas() {
-    const query = wx.createSelectorQuery();
-    query.select('#myCanvas')
-      .fields({ node: true, size: true, rect: true })
-      .exec((res) => {
-        if (!res[0]) {
-          console.error('未找到canvas节点');
-          return;
-        }
-
-        const canvas = res[0].node;
-        const ctx = canvas.getContext('2d');
-
-        // 获取画布位置和尺寸
-        const canvasLeft = res[0].left || 0;
-        const canvasTop = res[0].top || 0;
-        const canvasWidth = res[0].width || 375;
-        const canvasHeight = res[0].height || 500;
-
-        // 直接设置画布尺寸，不使用高分辨率
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
-
+  async initCanvas() {
+    try {
+      const result = await rootStore.canvasStore.initCanvas((canvasLeft, canvasTop) => {
         // 更新触摸管理器的画布位置
         if (this.touchManager) {
           this.touchManager.updateCanvasPosition(canvasLeft, canvasTop);
         }
-
-        // 保存canvas和ctx引用
-        this.canvas = canvas;
-        this.ctx = ctx;
-
-        // 初始化动画系统
-        this.animationStore = rootStore.initAnimationSystem(
-          canvasWidth,
-          canvasHeight,
-          rootStore.getCurrentBackgroundColor()
-        );
-
-        // 设置Canvas层
-        this.animationStore.setupCanvas(canvas, ctx, canvasWidth, canvasHeight, rootStore.getCurrentBackgroundColor());
-
-        // 初始渲染空白画布
-        this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
-
-        console.log('画布初始化完成');
       });
+
+      // 保存引用以兼容现有代码
+      this.canvas = result.canvas;
+      this.ctx = result.ctx;
+      this.animationStore = result.animationStore;
+
+      console.log('页面: 画布初始化完成');
+    } catch (error) {
+      console.error('页面: 画布初始化失败', error);
+      wx.showToast({
+        title: '画布初始化失败',
+        icon: 'none'
+      });
+    }
   },
   
 
@@ -165,38 +141,20 @@ Page({
   },
   
   /**
-   * 在指定位置放置一个抖动像素或使用橡皮擦（使用画笔管理器）
+   * 在指定位置放置一个抖动像素 - 使用CanvasStore
    * @param {number} x - 像素x坐标
    * @param {number} y - 像素y坐标
    * @param {boolean} [checkAudio=true] - 是否检查音频播放条件
    */
   placePixel(x, y, checkAudio = true) {
-    if (!this.ctx || !this.animationStore) return;
-
-    // 使用画笔管理器统一处理像素放置
-    const result = rootStore.brushManager.placePixel(
+    return rootStore.canvasStore.placePixel(
       x,
       y,
-      getRandomShape(),
-      rootStore.pixelStore,
-      {
-        checkAudio: checkAudio && this.touchManager && this.touchManager.shouldPlayAudio(),
-        audioPlayer: (audioPath) => {
-          this.playAudio(audioPath);
-        },
-        onRenderRequired: () => {
-          // 重新渲染画布
-          if (this.animationStore) {
-            this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
-          }
-        }
-      }
+      checkAudio,
+      (audioPath) => this.playAudio(audioPath),
+      () => this.vibrate(),
+      this.touchManager
     );
-
-    // 确保动画循环启动
-    if (result !== null && !this.animationStore.animationLoop.isRunning) {
-      this.animationStore.startAnimation();
-    }
   },
   
   // 切换画笔 - 使用画笔管理器
@@ -228,30 +186,15 @@ Page({
     }
   },
 
-  // 切换透明背景
+  // 切换透明背景 - 使用CanvasStore
   toggleTransparentBackground: function (e) {
     const isTransparent = e.detail.value;
-    rootStore.setTransparentBackground(isTransparent);
-
-    // 重新渲染画布以应用新的背景设置
-    if (this.animationStore) {
-      this.animationStore.setBackgroundColor(rootStore.getCurrentBackgroundColor());
-      this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
-    }
-
-    console.log(`透明背景已${isTransparent ? '开启' : '关闭'}`);
+    rootStore.canvasStore.toggleTransparentBackground(isTransparent);
   },
   
-  // 清空画布
+  // 清空画布 - 使用CanvasStore
   clearCanvas: function () {
-    rootStore.clearAllPixels();
-
-    // 重新渲染画布以显示清空效果
-    if (this.animationStore) {
-      this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
-    }
-
-    console.log('画布已清空');
+    rootStore.canvasStore.clearCanvas();
   },
   
   // 保存图片
@@ -434,6 +377,11 @@ Page({
     if (this.touchManager) {
       this.touchManager.destroy();
       this.touchManager = null;
+    }
+
+    // 清理CanvasStore资源
+    if (rootStore.canvasStore) {
+      rootStore.canvasStore.destroy();
     }
 
     // 清理 MobX 绑定
