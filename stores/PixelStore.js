@@ -1,5 +1,5 @@
 const { makeAutoObservable } = require('mobx-miniprogram')
-const { WigglePixel } = require('../utils/animation')
+const { WigglePixel } = require('../utils/pixels/wigglePixel')
 
 /**
  * 像素存储Store

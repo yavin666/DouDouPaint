@@ -109,7 +109,7 @@ class BrushManager {
   }
 
   /**
-   * 绘制像素（统一入口）
+   * 绘制像素（统一入口）- 支持普通画笔和橡皮擦
    * @param {number} x - x坐标
    * @param {number} y - y坐标
    * @param {Array} frameData - 帧数据
@@ -121,9 +121,33 @@ class BrushManager {
       console.warn('没有选择画笔')
       return null
     }
-    
-    const brushSize = this.getCurrentBrushSizeConfig()
-    return this.currentBrush.createPixel(x, y, frameData, brushSize, pixelStore)
+
+    // 判断是否为橡皮擦
+    if (this.isCurrentBrushEraser()) {
+      return this.handleEraserDraw(x, y, pixelStore)
+    } else {
+      // 普通画笔绘制
+      const brushSize = this.getCurrentBrushSizeConfig()
+      return this.currentBrush.createPixel(x, y, frameData, brushSize, pixelStore)
+    }
+  }
+
+  /**
+   * 处理橡皮擦绘制逻辑
+   * @param {number} x - x坐标
+   * @param {number} y - y坐标
+   * @param {Object} pixelStore - 像素存储对象
+   * @returns {number} 删除的像素数量
+   */
+  handleEraserDraw(x, y, pixelStore) {
+    const currentBrushSize = this.getCurrentBrushSizeConfig()
+    const eraserRadius = currentBrushSize.size * (currentBrushSize.eraserMultiplier || 2.5)
+
+    // 调用 pixelStore 的橡皮擦方法
+    const deletedCount = pixelStore.erasePixelsInArea(x, y, eraserRadius)
+    console.log(`橡皮擦删除了 ${deletedCount} 个像素`)
+
+    return deletedCount
   }
 
   /**
@@ -215,6 +239,73 @@ class BrushManager {
   }
 
   /**
+   * 切换画笔类型（页面层调用的统一接口）
+   * @param {string} penType - 画笔类型
+   * @returns {boolean} 是否切换成功
+   */
+  changePen(penType) {
+    if (this.currentBrushType === penType) {
+      console.log(`画笔类型未改变: ${penType}`)
+      return true
+    }
+
+    const success = this.setBrush(penType)
+    if (success) {
+      const brushInfo = this.getCurrentBrush()?.getBrushInfo()
+      console.log(`切换到画笔: ${brushInfo?.name || penType}`)
+    }
+    return success
+  }
+
+  /**
+   * 切换画笔大小（页面层调用的统一接口）
+   * @param {string} size - 画笔大小
+   * @returns {boolean} 是否切换成功
+   */
+  changeBrushSize(size) {
+    if (this.currentBrushSize === size) {
+      console.log(`画笔大小未改变: ${size}`)
+      return true
+    }
+
+    this.setBrushSize(size)
+    const sizeConfig = this.getCurrentBrushSizeConfig()
+    console.log(`画笔大小切换为: ${size} (${sizeConfig.size}px)`)
+    return true
+  }
+
+  /**
+   * 放置像素的统一接口（页面层调用）
+   * @param {number} x - x坐标
+   * @param {number} y - y坐标
+   * @param {Array} frameData - 帧数据
+   * @param {Object} pixelStore - 像素存储对象
+   * @param {Object} options - 额外选项
+   * @param {boolean} options.checkAudio - 是否检查音频播放条件
+   * @param {Function} options.audioPlayer - 音频播放函数
+   * @param {Function} options.onRenderRequired - 需要重新渲染时的回调
+   * @returns {string|number|null} 像素ID、删除数量或null
+   */
+  placePixel(x, y, frameData, pixelStore, options = {}) {
+    const { checkAudio = true, audioPlayer, onRenderRequired } = options
+
+    // 执行绘制
+    const result = this.draw(x, y, frameData, pixelStore)
+
+    // 如果有结果，触发重新渲染
+    if (result !== null && onRenderRequired) {
+      onRenderRequired()
+    }
+
+    // 播放音效
+    if (checkAudio && audioPlayer) {
+      this.playCurrentBrushAudio(audioPlayer)
+    }
+
+    return result
+  }
+
+  /**
    * 获取画笔管理器状态
    * @returns {Object} 状态信息
    */
@@ -226,6 +317,23 @@ class BrushManager {
       totalBrushes: this.brushes.size,
       isEraser: this.isCurrentBrushEraser()
     }
+  }
+
+  /**
+   * 获取当前画笔的详细信息
+   * @returns {Object|null} 画笔信息
+   */
+  getCurrentBrushInfo() {
+    return this.currentBrush ? this.currentBrush.getBrushInfo() : null
+  }
+
+  /**
+   * 获取当前画笔大小的像素值
+   * @returns {number} 画笔大小像素值
+   */
+  getCurrentBrushSizePixels() {
+    const sizeConfig = this.getCurrentBrushSizeConfig()
+    return sizeConfig ? sizeConfig.size : 6
   }
 }
 

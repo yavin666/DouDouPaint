@@ -1,4 +1,4 @@
-const { WigglePixel } = require('../animation')
+const { WigglePixel } = require('../pixels/wigglePixel')
 const { BRUSH_LAYERS, BRUSH_TYPES } = require('./brushConstants')
 
 /**

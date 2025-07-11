@@ -21,10 +21,18 @@
 ```
 /pages
   /canvas - 主画布页面
+/stores
+  /animation - 动画系统模块（AnimationStore、AnimationLoop、FrameRenderer等）
+  /pixelStore.js - 像素状态管理
+  /rootStore.js - 根状态管理
 /utils
-  /animation.js - 动画控制和抖动像素类
-  /shapes.js - 预定义的像素形状数据
+  /pixels/wigglePixel.js - 抖动像素类
+  /brushes - 画笔系统（BaseBrush、PencilBrush、MarkerBrush等）
   /gifExport.js - GIF导出相关功能
+  /frameExport.js - 帧导出功能
+  /TouchInteractionManager.js - 触摸交互管理
+/config
+  /pixelShapes.js - 预定义的像素形状数据
 ```
 
 ## 使用说明

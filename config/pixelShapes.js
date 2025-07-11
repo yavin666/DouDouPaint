@@ -1,5 +1,6 @@
 /**
- * 抖动像素形状定义文件
+ * 抖动像素形状配置文件
+ * 定义了各种像素的3帧动画形状数据
  * 每个形状包含多个帧，每帧由多个坐标点组成
  */
 
@@ -119,17 +120,48 @@ const REVERSE_DIAG_PIXEL = [
 ];
 
 /**
+ * 所有可用的形状数组
+ */
+const AVAILABLE_SHAPES = [PLUS_PIXEL, DIAG_PIXEL, REVERSE_DIAG_PIXEL];
+
+/**
  * 随机获取一个形状
  * @returns {Array} 随机选择的形状数据
  */
 function getRandomShape() {
-  const shapes = [PLUS_PIXEL, DIAG_PIXEL, REVERSE_DIAG_PIXEL];
-  return shapes[Math.floor(Math.random() * shapes.length)];
+  return AVAILABLE_SHAPES[Math.floor(Math.random() * AVAILABLE_SHAPES.length)];
+}
+
+/**
+ * 根据索引获取指定形状
+ * @param {number} index - 形状索引 (0-2)
+ * @returns {Array} 指定的形状数据
+ */
+function getShapeByIndex(index) {
+  if (index < 0 || index >= AVAILABLE_SHAPES.length) {
+    console.warn(`形状索引 ${index} 超出范围，返回默认形状`);
+    return PLUS_PIXEL;
+  }
+  return AVAILABLE_SHAPES[index];
+}
+
+/**
+ * 获取所有可用形状的数量
+ * @returns {number} 形状数量
+ */
+function getShapeCount() {
+  return AVAILABLE_SHAPES.length;
 }
 
 module.exports = {
+  // 形状常量
   PLUS_PIXEL,
   DIAG_PIXEL,
   REVERSE_DIAG_PIXEL,
-  getRandomShape
-}
+  AVAILABLE_SHAPES,
+  
+  // 工具函数
+  getRandomShape,
+  getShapeByIndex,
+  getShapeCount
+};

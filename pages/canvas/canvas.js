@@ -1,7 +1,7 @@
 // pages/canvas/canvas.js
 const { createStoreBindings } = require('mobx-miniprogram-bindings')
 const { rootStore } = require('../../stores/rootStore')
-const { getRandomShape } = require('../../utils/shapes')
+const { getRandomShape } = require('../../config/pixelShapes')
 const { showCloudGifOptions, callGifCloudFunction } = require('../../utils/gifExport')
 const { exportFramesForBackend, showFrameExportOptions } = require('../../utils/frameExport')
 const { TouchInteractionManager } = require('../../utils/TouchInteractionManager')
@@ -10,12 +10,7 @@ const { TouchInteractionManager } = require('../../utils/TouchInteractionManager
 Page({
   data: {
     currentPen: 'pencil',
-    pens: {
-      pencil: { color: '#000000', width: 2, audio: '/static/sounds/clip.mp3' },
-      marker: { color: '#39C5BB', width: 4, audio: '/static/sounds/clip.mp3' },
-      spray: { color: '#666666', width: 6, audio: '/static/sounds/clip.mp3' },
-      eraser: { color: 'transparent', width: 8, audio: '/static/sounds/clip.mp3', isEraser: true }
-    },
+    // 移除冗余的画笔配置，统一由 BrushManager 管理
     canvasBackground: '#FFFFFF'
   },
   onLoad: function () {
@@ -170,7 +165,7 @@ Page({
   },
   
   /**
-   * 在指定位置放置一个抖动像素或使用橡皮擦（使用新的画笔系统）
+   * 在指定位置放置一个抖动像素或使用橡皮擦（使用画笔管理器）
    * @param {number} x - 像素x坐标
    * @param {number} y - 像素y坐标
    * @param {boolean} [checkAudio=true] - 是否检查音频播放条件
@@ -178,73 +173,59 @@ Page({
   placePixel(x, y, checkAudio = true) {
     if (!this.ctx || !this.animationStore) return;
 
-    // 获取当前画笔配置
-    const pen = this.data.pens[this.data.currentPen];
-
-    // 判断是否为橡皮擦
-    if (pen.isEraser || this.data.currentPen === 'eraser') {
-      // 使用橡皮擦功能
-      const currentBrushSize = rootStore.drawingConfig.brushSizes[rootStore.drawingConfig.currentBrushSize];
-      const eraserRadius = currentBrushSize.size * (currentBrushSize.eraserMultiplier || 2.5);
-      const result = rootStore.erasePixelsInArea(x, y, eraserRadius);
-
-      console.log(`橡皮擦删除了 ${result} 个像素`);
-
-      // 重新渲染
-      if (this.animationStore) {
-        this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
+    // 使用画笔管理器统一处理像素放置
+    const result = rootStore.brushManager.placePixel(
+      x,
+      y,
+      getRandomShape(),
+      rootStore.pixelStore,
+      {
+        checkAudio: checkAudio && this.touchManager && this.touchManager.shouldPlayAudio(),
+        audioPlayer: (audioPath) => {
+          this.playAudio(audioPath);
+        },
+        onRenderRequired: () => {
+          // 重新渲染画布
+          if (this.animationStore) {
+            this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
+          }
+        }
       }
-    } else {
-      // 使用画笔管理器绘制普通像素
-      const result = rootStore.brushManager.draw(
-        x,
-        y,
-        getRandomShape(),
-        rootStore.pixelStore
-      );
-
-      // 重新渲染
-      if (result !== null && this.animationStore) {
-        this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
-      }
-    }
+    );
 
     // 确保动画循环启动
-    if (!this.animationStore.animationLoop.isRunning) {
+    if (result !== null && !this.animationStore.animationLoop.isRunning) {
       this.animationStore.startAnimation();
-    }
-
-    // 播放音效 - 由触摸管理器控制
-    if (checkAudio && this.touchManager && this.touchManager.shouldPlayAudio()) {
-      // 使用画笔管理器播放音效
-      rootStore.brushManager.playCurrentBrushAudio((audioPath) => {
-        this.playAudio(audioPath);
-      });
     }
   },
   
-  // 切换画笔
+  // 切换画笔 - 使用画笔管理器
   changePen: function (e) {
     const pen = e.currentTarget.dataset.pen;
 
-    // 只在画笔真正改变时才设置
-    if (this.data.currentPen !== pen) {
+    // 使用画笔管理器处理画笔切换
+    const success = rootStore.brushManager.changePen(pen);
+
+    if (success && this.data.currentPen !== pen) {
+      // 更新页面数据
       this.setData({ currentPen: pen });
 
-      // 使用新的画笔系统设置画笔类型
+      // 同步到 rootStore（保持兼容性）
       rootStore.setBrushType(pen);
-
-      // 获取画笔信息并打印
-      const brushInfo = rootStore.getCurrentBrushInfo();
-      console.log(`切换到画笔: ${brushInfo?.name || pen}`);
     }
   },
 
-  // 切换画笔大小
+  // 切换画笔大小 - 使用画笔管理器
   changeBrushSize: function (e) {
     const size = e.currentTarget.dataset.size;
-    rootStore.setBrushSize(size);
-    console.log(`画笔大小切换为: ${size} (${rootStore.getCurrentBrushSize()}px)`);
+
+    // 使用画笔管理器处理画笔大小切换
+    const success = rootStore.brushManager.changeBrushSize(size);
+
+    if (success) {
+      // 同步到 rootStore（保持兼容性）
+      rootStore.setBrushSize(size);
+    }
   },
 
   // 切换透明背景

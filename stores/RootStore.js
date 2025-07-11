@@ -114,6 +114,12 @@ class RootStore {
     return this.brushManager.getStatus()
   }
 
+  /**
+   * 检查当前画笔是否为橡皮擦
+   */
+  isCurrentBrushEraser() {
+    return this.brushManager.isCurrentBrushEraser()
+  }
 
 
   /**
