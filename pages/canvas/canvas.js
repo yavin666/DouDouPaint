@@ -3,7 +3,7 @@ const { createStoreBindings } = require('mobx-miniprogram-bindings')
 const { rootStore } = require('../../stores/rootStore')
 const { showCloudGifOptions, callGifCloudFunction } = require('../../utils/gifExport')
 const { exportFramesForBackend, showFrameExportOptions } = require('../../utils/frameExport')
-const { TouchInteractionManager } = require('../../utils/TouchInteractionManager')
+const { TouchInteractionManager } = require('../../utils/touchInteractionManager')
 
 
 Page({
