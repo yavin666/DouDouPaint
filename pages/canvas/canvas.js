@@ -4,6 +4,7 @@ const { rootStore } = require('../../stores/rootStore')
 const { getRandomShape } = require('../../utils/shapes')
 const { showCloudGifOptions, callGifCloudFunction } = require('../../utils/gifExport')
 const { exportFramesForBackend, showFrameExportOptions } = require('../../utils/frameExport')
+const { TouchInteractionManager } = require('../../utils/TouchInteractionManager')
 
 
 Page({
@@ -15,16 +16,7 @@ Page({
       spray: { color: '#666666', width: 6, audio: '/static/sounds/clip.mp3' },
       eraser: { color: 'transparent', width: 8, audio: '/static/sounds/clip.mp3', isEraser: true }
     },
-    lastX: 0,
-    lastY: 0,
-    isDrawing: false,
-    canvasBackground: '#FFFFFF',
-    canvasLeft: 0,  // 画布左边距
-    canvasTop: 0,   // 画布上边距
-    audioCounter: 0,  // 音频播放计数器
-    audioInterval: 10,  // 音频播放间隔
-    lastAudioTime: 0,  // 上次播放音频的时间戳
-    audioTimeInterval: 300  // 音频播放的最小时间间隔（毫秒）
+    canvasBackground: '#FFFFFF'
   },
   onLoad: function () {
     console.log('=== 使用MobX优化版本启动 ===')
@@ -50,7 +42,41 @@ Page({
     // 初始化画笔类型
     rootStore.setBrushType(this.data.currentPen || 'pencil');
 
+    // 初始化触摸交互管理器
+    this.initTouchManager();
+
     this.initCanvas();
+  },
+
+  /**
+   * 初始化触摸交互管理器
+   */
+  initTouchManager() {
+    this.touchManager = new TouchInteractionManager({
+      audioInterval: 10,
+      audioTimeInterval: 300,
+      pixelSpacing: 6,
+      onDrawStart: (x, y) => {
+        console.log(`开始绘制: (${x.toFixed(1)}, ${y.toFixed(1)})`);
+      },
+      onDrawMove: (x, y) => {
+        // 移动绘制时的回调，可以用于性能监控等
+      },
+      onDrawEnd: (x, y) => {
+        console.log(`结束绘制: (${x.toFixed(1)}, ${y.toFixed(1)})`);
+      },
+      onPlayAudio: () => {
+        this.playAudio();
+      },
+      onVibrate: () => {
+        this.vibrate();
+      },
+      onPlacePixel: (x, y, checkAudio) => {
+        this.placePixel(x, y, checkAudio);
+      }
+    });
+
+    console.log('触摸交互管理器初始化完成');
   },
 
   /**
@@ -79,10 +105,10 @@ Page({
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
 
-        this.setData({
-          canvasLeft: canvasLeft,
-          canvasTop: canvasTop
-        });
+        // 更新触摸管理器的画布位置
+        if (this.touchManager) {
+          this.touchManager.updateCanvasPosition(canvasLeft, canvasTop);
+        }
 
         // 保存canvas和ctx引用
         this.canvas = canvas;
@@ -108,101 +134,39 @@ Page({
 
   
   /**
-   * 开始绘画
-   * 处理触摸开始事件，计算触摸点坐标并开始绘制
+   * 开始绘画 - 使用触摸交互管理器
    */
   touchStart: function (e) {
-    // 阻止事件冒泡和默认行为
-    e.preventDefault && e.preventDefault();
-    e.stopPropagation && e.stopPropagation();
-
-    if (!e.touches || e.touches.length === 0) return;
-
-    const touch = e.touches[0];
-    // 计算触摸点相对于画布的坐标，考虑页面滚动
-    const x = touch.pageX - this.data.canvasLeft;
-    const y = touch.pageY - this.data.canvasTop;
-
-    this.setData({
-      lastX: x,
-      lastY: y,
-      isDrawing: true,
-      audioCounter: 0 // 重置音频计数器
-    });
-    this.vibrate();
-
-    // 初始化上次音频播放时间（如果未设置）
-    if (!this.data.lastAudioTime) {
-      this.data.lastAudioTime = Date.now();
+    if (this.touchManager) {
+      this.touchManager.handleTouchStart(e);
     }
-
-    // 触摸开始时总是播放音效
-    const pen = this.data.pens[this.data.currentPen];
-    this.playAudio(pen.audio);
-
-    this.placePixel(x, y);
   },
   
   /**
-   * 绘画中
-   * 处理触摸移动事件，简化版本
+   * 绘画中 - 使用触摸交互管理器
    */
   touchMove: function (e) {
-    // 阻止事件冒泡和默认行为
-    e.preventDefault && e.preventDefault();
-    e.stopPropagation && e.stopPropagation();
-
-    if (!this.data.isDrawing) return;
-    if (!e.touches || e.touches.length === 0) return;
-
-    const touch = e.touches[0];
-    const x = touch.pageX - this.data.canvasLeft;
-    const y = touch.pageY - this.data.canvasTop;
-
-    const { lastX, lastY } = this.data;
-
-    // 简化的距离计算，固定间距
-    const dx = x - lastX;
-    const dy = y - lastY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    // 使用固定间距，简化计算
-    const pixelSpacing = 6;
-    const steps = Math.max(1, Math.floor(distance / pixelSpacing));
-
-    for (let i = 1; i <= steps; i++) {
-      const ratio = i / steps;
-      const px = lastX + dx * ratio;
-      const py = lastY + dy * ratio;
-
-      // 只在最后一个步骤播放音频
-      const shouldPlayAudio = (i === steps);
-      this.placePixel(px, py, shouldPlayAudio);
+    if (this.touchManager) {
+      this.touchManager.handleTouchMove(e);
     }
-
-    // 更新位置
-    this.data.lastX = x;
-    this.data.lastY = y;
   },
   
-  // 结束绘画
+  /**
+   * 结束绘画 - 使用触摸交互管理器
+   */
   touchEnd: function (e) {
-    // 阻止事件冒泡和默认行为
-    e.preventDefault && e.preventDefault();
-    e.stopPropagation && e.stopPropagation();
-
-    this.setData({ isDrawing: false });
+    if (this.touchManager) {
+      this.touchManager.handleTouchEnd(e);
+    }
   },
 
-  // 触摸取消事件处理
+  /**
+   * 触摸取消事件处理 - 使用触摸交互管理器
+   */
   touchCancel: function (e) {
-    // 阻止事件冒泡和默认行为
-    e.preventDefault && e.preventDefault();
-    e.stopPropagation && e.stopPropagation();
-
-    // 触摸被取消时也要停止绘画
-    this.setData({ isDrawing: false });
-    console.log('触摸事件被取消');
+    if (this.touchManager) {
+      this.touchManager.handleTouchCancel(e);
+    }
   },
   
   /**
@@ -250,17 +214,12 @@ Page({
       this.animationStore.startAnimation();
     }
 
-    // 播放音效
-    if (checkAudio) {
-      // 控制音频播放频率
-      this.data.audioCounter++;
-      if (this.data.audioCounter >= this.data.audioInterval) {
-        // 使用画笔管理器播放音效
-        rootStore.brushManager.playCurrentBrushAudio((audioPath) => {
-          this.playAudio(audioPath);
-        });
-        this.data.audioCounter = 0; // 重置计数器
-      }
+    // 播放音效 - 由触摸管理器控制
+    if (checkAudio && this.touchManager && this.touchManager.shouldPlayAudio()) {
+      // 使用画笔管理器播放音效
+      rootStore.brushManager.playCurrentBrushAudio((audioPath) => {
+        this.playAudio(audioPath);
+      });
     }
   },
   
@@ -438,23 +397,13 @@ Page({
 
   
   /**
-   * 播放音效
-   * 添加时间间隔控制，避免音频播放过于频繁
+   * 播放音效 - 简化版本，时间控制由触摸管理器处理
    */
   playAudio: function () {
-    const currentTime = Date.now();
-    const timeSinceLastAudio = currentTime - this.data.lastAudioTime;
-    
-    // 检查是否满足最小时间间隔要求
-    if (timeSinceLastAudio >= this.data.audioTimeInterval) {
-      const audio = wx.createInnerAudioContext();
-      // 统一使用clip.mp3音频文件
-      audio.src = '/static/sounds/clip.mp3';
-      audio.play();
-      
-      // 更新上次播放时间
-      this.data.lastAudioTime = currentTime;
-    }
+    const audio = wx.createInnerAudioContext();
+    // 统一使用clip.mp3音频文件
+    audio.src = '/static/sounds/clip.mp3';
+    audio.play();
   },
   
   // 触发振动
@@ -498,7 +447,13 @@ Page({
 
   // 页面卸载时清理资源
   onUnload: function() {
-    console.log('页面卸载，清理MobX资源');
+    console.log('页面卸载，清理资源');
+
+    // 清理触摸交互管理器
+    if (this.touchManager) {
+      this.touchManager.destroy();
+      this.touchManager = null;
+    }
 
     // 清理 MobX 绑定
     if (this.storeBindings) {
