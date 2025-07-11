@@ -143,8 +143,8 @@ class CanvasStore {
     // 性能监控
     this.performance.pixelPlaceCount++
 
-    // 使用画笔管理器统一处理像素放置
-    const result = this.rootStore.brushManager.placePixel(
+    // 使用 PenStore 统一处理像素放置（PenStore 内部管理 BrushManager）
+    const result = this.rootStore.penStore.placePixel(
       x,
       y,
       getRandomShape(),

@@ -1,11 +1,12 @@
 const { makeAutoObservable } = require('mobx-miniprogram')
 const { pixelStore } = require('./pixelStore')
 const { AnimationStore } = require('./animation/animationStore')
-const { BrushManager } = require('../utils/brushes/BrushManager')
 const { CanvasStore } = require('./canvasStore')
+const { PenStore } = require('./penStore')
 
 /**
  * 根Store，管理所有子Store
+ * 简化版本：画笔相关逻辑由 PenStore 统一管理
  */
 class RootStore {
   constructor() {
@@ -15,6 +16,9 @@ class RootStore {
     // 新的简化动画架构
     this.animationStore = new AnimationStore(this.pixelStore)
 
+    // 画笔状态管理Store（包含 BrushManager）
+    this.penStore = new PenStore()
+
     // 画布配置
     this.canvasConfig = {
       width: 375,
@@ -23,28 +27,12 @@ class RootStore {
       isTransparent: false // 透明背景开关
     }
 
-    // 绘制配置（持续动画优化 + 画笔大小）
+    // 简化的绘制配置（保留兼容性）
     this.drawingConfig = {
-      currentPen: 'pencil',
-      currentBrushSize: 'medium', // 当前画笔大小
-      pens: {
-        pencil: { color: '#000000', width: 2, opacity: 1.0 },
-        marker: { color: '#333333', width: 4, opacity: 0.8 },
-        spray: { color: '#666666', width: 3, opacity: 0.7 },
-        eraser: { color: 'transparent', width: 6, opacity: 1.0, isEraser: true }
-      },
-      brushSizes: {
-        small: { size: 2, spacing: 4, label: '小', eraserMultiplier: 2.5 },
-        medium: { size: 4, spacing: 6, label: '中', eraserMultiplier: 2.5 },
-        large: { size: 6, spacing: 8, label: '大', eraserMultiplier: 2.5 }
-      },
       isDrawing: false,
       lastX: 0,
       lastY: 0
     }
-
-    // 初始化画笔管理器
-    this.brushManager = new BrushManager(this.drawingConfig)
 
     // 画布状态管理Store
     this.canvasStore = new CanvasStore(this)
@@ -66,7 +54,7 @@ class RootStore {
    * 添加像素（代理到 pixelStore）
    */
   addPixel(x, y, color, frameData, size, penType = 'pencil') {
-    const penConfig = this.drawingConfig.pens[penType] || this.drawingConfig.pens.pencil
+    const penConfig = this.penStore.penTypes[penType] || this.penStore.penTypes.pencil
     const brushConfig = { size: size }
     return this.pixelStore.addPixel(x, y, color, frameData, brushConfig, penConfig.opacity, penType)
   }
@@ -86,47 +74,6 @@ class RootStore {
   }
 
   /**
-   * 设置画笔大小
-   */
-  setBrushSize(size) {
-    if (this.drawingConfig.brushSizes[size]) {
-      this.drawingConfig.currentBrushSize = size
-      this.brushManager.setBrushSize(size)
-      console.log(`画笔大小切换为: ${this.drawingConfig.brushSizes[size].label}`)
-    }
-  }
-
-  /**
-   * 设置当前画笔类型
-   */
-  setBrushType(brushType) {
-    this.drawingConfig.currentPen = brushType
-    this.brushManager.setBrush(brushType)
-  }
-
-  /**
-   * 获取当前画笔信息
-   */
-  getCurrentBrushInfo() {
-    return this.brushManager.getCurrentBrush()?.getBrushInfo() || null
-  }
-
-  /**
-   * 获取画笔管理器状态
-   */
-  getBrushManagerStatus() {
-    return this.brushManager.getStatus()
-  }
-
-  /**
-   * 检查当前画笔是否为橡皮擦
-   */
-  isCurrentBrushEraser() {
-    return this.brushManager.isCurrentBrushEraser()
-  }
-
-
-  /**
    * 获取当前背景颜色
    */
   getCurrentBackgroundColor() {
@@ -134,21 +81,21 @@ class RootStore {
   }
 
   /**
-   * 获取当前画笔配置
+   * 获取当前画笔配置（代理到 penStore）
    */
   getCurrentBrushConfig() {
-    return this.drawingConfig.brushSizes[this.drawingConfig.currentBrushSize]
+    return this.penStore.getCurrentBrushSizeConfig()
   }
 
   /**
-   * 获取当前画笔大小
+   * 获取当前画笔大小（代理到 penStore）
    */
   getCurrentBrushSize() {
     return this.getCurrentBrushConfig()
   }
 
   /**
-   * 获取当前像素间距
+   * 获取当前像素间距（代理到 penStore）
    */
   getCurrentPixelSpacing() {
     return this.getCurrentBrushConfig().spacing
@@ -168,16 +115,12 @@ class RootStore {
     console.log(`背景设置为: ${isTransparent ? '透明' : '白色'}`)
   }
 
-
-
   /**
    * 获取透明背景状态
    */
   getTransparentBackground() {
     return this.canvasConfig.isTransparent
   }
-
-
 
   /**
    * 获取性能报告

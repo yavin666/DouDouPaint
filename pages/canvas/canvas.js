@@ -8,21 +8,26 @@ const { TouchInteractionManager } = require('../../utils/TouchInteractionManager
 
 Page({
   data: {
-    currentPen: 'pencil',
-    // 移除冗余的画笔配置，统一由 BrushManager 管理
+    // 移除冗余的画笔状态，统一由 PenStore 管理
     canvasBackground: '#FFFFFF'
   },
   onLoad: function () {
     console.log('=== 使用MobX优化版本启动 ===')
 
-    // 使用新的 MobX 6.x 绑定方式
+    // 使用新的 MobX 6.x 绑定方式，集成 PenStore
     this.storeBindings = createStoreBindings(this, {
       store: rootStore,
       fields: {
         totalPixels: () => rootStore.pixelStore.totalPixelCount,
         activePixels: () => rootStore.pixelStore.activePixels.size,
-        currentBrushSize: () => rootStore.drawingConfig.currentBrushSize,
-        brushSizes: () => rootStore.drawingConfig.brushSizes,
+        // 从 PenStore 获取画笔状态
+        currentPen: () => rootStore.penStore.getCurrentPenType(),
+        currentBrushSize: () => rootStore.penStore.getCurrentBrushSize(),
+        currentColor: () => rootStore.penStore.getCurrentColor(),
+        brushSizes: () => rootStore.penStore.brushSizes,
+        penTypes: () => rootStore.penStore.penTypes,
+        isCurrentPenEraser: () => rootStore.penStore.isCurrentPenEraser(),
+        // 其他状态
         isTransparentBackground: () => rootStore.canvasConfig.isTransparent,
         canvasInitialized: () => rootStore.canvasStore.canvasState.isInitialized,
         canvasPerformance: () => rootStore.canvasStore.getPerformanceReport()
@@ -30,13 +35,12 @@ Page({
       actions: {
         addPixel: 'addPixel',
         clearAllPixels: 'clearAllPixels',
-        setBrushSize: 'setBrushSize',
         setTransparentBackground: 'setTransparentBackground'
+        // 画笔相关的 actions 移除，直接调用 penStore 的方法
       }
     });
 
-    // 初始化画笔类型
-    rootStore.setBrushType(this.data.currentPen || 'pencil');
+    // PenStore 已经有默认的画笔类型，无需额外初始化
 
     // 初始化触摸交互管理器
     this.initTouchManager();
@@ -157,33 +161,30 @@ Page({
     );
   },
   
-  // 切换画笔 - 使用画笔管理器
+  // 切换画笔 - 使用 PenStore
   changePen: function (e) {
     const pen = e.currentTarget.dataset.pen;
 
-    // 使用画笔管理器处理画笔切换
-    const success = rootStore.brushManager.changePen(pen);
+    // 直接调用 PenStore 的方法，PenStore 内部会处理与 BrushManager 的同步
+    const success = rootStore.penStore.changePenType(pen);
 
-    if (success && this.data.currentPen !== pen) {
-      // 更新页面数据
-      this.setData({ currentPen: pen });
-
-      // 同步到 rootStore（保持兼容性）
-      rootStore.setBrushType(pen);
+    if (success) {
+      console.log(`画笔切换成功: ${pen}`);
     }
+
   },
 
-  // 切换画笔大小 - 使用画笔管理器
+  // 切换画笔大小 - 使用 PenStore
   changeBrushSize: function (e) {
     const size = e.currentTarget.dataset.size;
 
-    // 使用画笔管理器处理画笔大小切换
-    const success = rootStore.brushManager.changeBrushSize(size);
+    // 直接调用 PenStore 的方法，PenStore 内部会处理与 BrushManager 的同步
+    const success = rootStore.penStore.changeBrushSize(size);
 
     if (success) {
-      // 同步到 rootStore（保持兼容性）
-      rootStore.setBrushSize(size);
+      console.log(`画笔大小切换成功: ${size}`);
     }
+
   },
 
   // 切换透明背景 - 使用CanvasStore
