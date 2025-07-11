@@ -10,7 +10,8 @@ class pixelStore {
   constructor() {
     // 像素存储 - 按画笔类型分层存储，控制绘制顺序
     this.pixelLayers = {
-      spray: [],            // 喷漆层（使用数组保持插入顺序，新像素在后面）
+      marker: new Map(),    // 马克笔层（底层）
+      spray: new Map(),     // 喷漆层（中间层，在马克笔上层，铅笔下层）
       marker: new Map(),    // 马克笔层（中间层）
       pencil: new Map()     // 铅笔层（最上层）
     }
@@ -120,8 +121,10 @@ class pixelStore {
     // 添加到活跃像素集合
     this.activePixels.set(pixelId, pixel)
 
-    // 新的喷漆层级逻辑：直接添加到spray数组末尾（新像素在后面，渲染时在上层）
-    this.pixelLayers.spray.push({ id: pixelId, pixel: pixel })
+    // 使用普通层级逻辑：添加到对应的分层存储
+    if (this.pixelLayers[penType]) {
+      this.pixelLayers[penType].set(pixelId, pixel)
+    }
 
     this.totalPixelCount++
 
@@ -144,17 +147,9 @@ class pixelStore {
       this.activePixels.delete(oldestId)
 
       // 从对应的分层存储中删除
-      if (pixel && pixel.penType) {
-        if (pixel.penType === 'spray') {
-          // 喷漆层使用数组，需要找到并移除对应项
-          const index = this.pixelLayers.spray.findIndex(item => item.id === oldestId)
-          if (index !== -1) {
-            this.pixelLayers.spray.splice(index, 1)
-          }
-        } else if (this.pixelLayers[pixel.penType]) {
-          // 其他层使用Map
-          this.pixelLayers[pixel.penType].delete(oldestId)
-        }
+      if (pixel && pixel.penType && this.pixelLayers[pixel.penType]) {
+        // 所有层都使用Map存储
+        this.pixelLayers[pixel.penType].delete(oldestId)
       }
     }
   }
@@ -271,8 +266,8 @@ class pixelStore {
    */
   getPixelsByRenderOrder() {
     return [
-      { layer: 'spray', pixels: this.pixelLayers.spray },
       { layer: 'marker', pixels: this.pixelLayers.marker },
+      { layer: 'spray', pixels: this.pixelLayers.spray },
       { layer: 'pencil', pixels: this.pixelLayers.pencil }
     ]
   }

@@ -4,7 +4,7 @@ const { BRUSH_TYPES, BRUSH_LAYERS } = require('./brushConstants')
 /**
  * 喷漆画笔类
  * 特点：稀疏像素分布，大范围喷涂，随机散点效果
- * 层级：底层（但新像素临时显示在上层）
+ * 层级：中间层（在马克笔上层，铅笔下层）
  */
 class SprayBrush extends BaseBrush {
   /**
@@ -144,7 +144,7 @@ class SprayBrush extends BaseBrush {
       size: this.sprayConfig.pixelSize || 2
     }
 
-    // 添加到像素存储（使用特殊的喷漆层级逻辑）
+    // 添加到像素存储（使用普通层级逻辑）
     return pixelStore.addSprayPixel(
       x,
       y,

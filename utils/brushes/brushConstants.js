@@ -4,8 +4,8 @@
 
 // 画笔层级定义（用于分层渲染）
 const BRUSH_LAYERS = {
-  SPRAY: 0,     // 喷漆层（最底层，但新像素临时提升）
-  MARKER: 1,    // 马克笔层（中间层）
+  MARKER: 0,    // 马克笔层（底层）
+  SPRAY: 1,     // 喷漆层（中间层，在马克笔上层，铅笔下层）
   PENCIL: 2,    // 铅笔层（最顶层）
   ERASER: -1    // 橡皮擦（特殊层，不参与渲染）
 }
@@ -75,8 +75,8 @@ const BRUSH_SIZES = {
 
 // 渲染层级顺序（从底层到顶层）
 const RENDER_ORDER = [
-  BRUSH_LAYERS.SPRAY,
   BRUSH_LAYERS.MARKER,
+  BRUSH_LAYERS.SPRAY,
   BRUSH_LAYERS.PENCIL
 ]
 

@@ -26,6 +26,8 @@ class AnimationStore {
   setupCanvas(canvas, ctx, width, height, backgroundColor) {
     this.frameRenderer.setupCanvas(canvas, ctx, width, height)
     this.frameRenderer.setBackgroundColor(backgroundColor)
+    // 设置frameCapture的canvas引用
+    this.frameCapture.setCanvas(canvas)
   }
   
   /**
@@ -50,10 +52,28 @@ class AnimationStore {
   }
   
   /**
-   * 捕获帧数据用于后端GIF生成
+   * 捕获帧数据用于后端GIF生成（保持向后兼容）
    */
   async captureFramesForBackend() {
     return await this.frameCapture.capture3Frames()
+  }
+
+  /**
+   * 新的云开发GIF导出功能
+   * @param {Function} onProgress - 进度回调
+   * @returns {Promise<Array<string>>} 云存储文件ID数组
+   */
+  async captureAndUploadFrames(onProgress) {
+    return await this.frameCapture.captureAndUpload(onProgress)
+  }
+
+  /**
+   * 捕获3帧并转换为图片文件
+   * @param {Function} onProgress - 进度回调
+   * @returns {Promise<Array<string>>} 图片文件路径数组
+   */
+  async capture3FramesAsImages(onProgress) {
+    return await this.frameCapture.capture3FramesAsImages(onProgress)
   }
   
   /**

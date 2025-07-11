@@ -2,7 +2,7 @@
 const { createStoreBindings } = require('mobx-miniprogram-bindings')
 const { rootStore } = require('../../stores/rootStore')
 const { getRandomShape } = require('../../utils/shapes')
-const { exportGif, showGifOptions } = require('../../utils/gifExport')
+const { showCloudGifOptions, callGifCloudFunction } = require('../../utils/gifExport')
 const { exportFramesForBackend, showFrameExportOptions } = require('../../utils/frameExport')
 
 
@@ -105,8 +105,8 @@ Page({
         // 设置Canvas层
         this.animationStore.setupCanvas(canvas, ctx, canvasWidth, canvasHeight, rootStore.getCurrentBackgroundColor());
 
-        // 设置背景色
-        this.clearCanvas();
+        // 初始渲染空白画布
+        this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
 
         console.log('画布初始化完成');
       });
@@ -289,6 +289,12 @@ Page({
   // 清空画布
   clearCanvas: function () {
     rootStore.clearAllPixels();
+
+    // 重新渲染画布以显示清空效果
+    if (this.animationStore) {
+      this.animationStore.frameRenderer.renderFrame(rootStore.pixelStore);
+    }
+
     console.log('画布已清空');
   },
   
@@ -369,6 +375,97 @@ Page({
 
     // 使用新的简化导出功能
     showFrameExportOptions(this);
+  },
+
+  // 新的云开发GIF导出功能
+  exportGifWithCloud: async function() {
+    if (!this.canvas || !this.animationStore) {
+      wx.showToast({ title: '画布未初始化', icon: 'none' });
+      return;
+    }
+
+    // 检查是否有像素
+    if (this.animationStore.pixelStore.activePixels.size === 0) {
+      wx.showToast({ title: '画布为空，请先绘制内容', icon: 'none' });
+      return;
+    }
+
+    // 显示确认对话框
+    const confirmed = await new Promise(resolve => {
+      wx.showModal({
+        title: '生成GIF动画',
+        content: '将生成3帧抖动动画，大约需要10-30秒，是否继续？',
+        confirmText: '开始生成',
+        cancelText: '取消',
+        success: (res) => resolve(res.confirm),
+        fail: () => resolve(false)
+      });
+    });
+
+    if (!confirmed) return;
+
+    try {
+      // 第一步：捕获帧并转换为图片
+      wx.showLoading({ title: '正在捕获帧...' });
+      const imagePaths = await this.animationStore.capture3FramesAsImages((progress) => {
+        wx.showLoading({
+          title: `捕获中 ${progress.current}/${progress.total}`
+        });
+      });
+
+      if (imagePaths.length === 0) {
+        throw new Error('未能捕获到有效帧');
+      }
+
+      // 第二步：上传图片到云存储
+      wx.showLoading({ title: '正在上传图片...' });
+      const fileIds = await this.animationStore.frameCapture.uploadImagesToCloud(imagePaths, (progress) => {
+        wx.showLoading({
+          title: `上传中 ${progress.current}/${progress.total} (${progress.progress}%)`
+        });
+      });
+
+      // 第三步：调用云函数合成GIF
+      wx.showLoading({ title: '正在合成GIF...' });
+      const result = await callGifCloudFunction(fileIds, {
+        delay: 200,
+        repeat: 0,
+        quality: 10
+      });
+
+      wx.hideLoading();
+
+      // 清理临时文件
+      try {
+        const fm = wx.getFileSystemManager();
+        imagePaths.forEach(path => {
+          fm.unlinkSync(path);
+        });
+      } catch (error) {
+        console.warn('清理临时文件失败:', error);
+      }
+
+      // 显示成功提示
+      wx.showToast({
+        title: 'GIF生成成功',
+        icon: 'success'
+      });
+
+      // 显示操作选项
+      await showCloudGifOptions(result);
+
+    } catch (error) {
+      wx.hideLoading();
+      console.error('云开发GIF导出失败:', error);
+
+      // 显示详细错误信息
+      wx.showModal({
+        title: 'GIF生成失败',
+        content: `错误原因：${error.message || '未知错误'}\n\n请检查网络连接或稍后重试。`,
+        showCancel: false,
+        confirmText: '知道了'
+      });
+    }
   },
 
   // 显示GIF配置选项

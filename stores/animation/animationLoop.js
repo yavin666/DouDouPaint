@@ -3,7 +3,7 @@ const { makeAutoObservable, reaction } = require('mobx-miniprogram')
 /**
  * 动画循环控制器 - 专门负责3帧抖动动画的循环控制
  * 职责单一：只管理动画状态，不负责渲染
- * 性能优化：使用 requestAnimationFrame 替代 setTimeout，提升性能并减少内存消耗
+ * 性能优化：使用 Canvas.requestAnimationFrame 或 setTimeout 作为兼容方案
  */
 class AnimationLoop {
   constructor(pixelStore, frameRenderer) {
@@ -56,8 +56,12 @@ class AnimationLoop {
   stop() {
     this.isRunning = false
     if (this.animationId) {
-      // 使用 wx.cancelAnimationFrame 替代 clearTimeout
-      wx.cancelAnimationFrame(this.animationId)
+      // 使用 Canvas.cancelAnimationFrame 或 clearTimeout 作为兼容方案
+      if (this.frameRenderer.canvas && this.frameRenderer.canvas.cancelAnimationFrame) {
+        this.frameRenderer.canvas.cancelAnimationFrame(this.animationId)
+      } else {
+        clearTimeout(this.animationId)
+      }
       this.animationId = null
     }
     this.lastFrameTime = 0 // 重置时间戳
@@ -65,8 +69,8 @@ class AnimationLoop {
   }
   
   /**
-   * 动画循环（性能优化版）
-   * 使用 requestAnimationFrame + 时间控制，避免递归 setTimeout 的性能问题
+   * 动画循环（兼容版）
+   * 使用 Canvas.requestAnimationFrame 或 setTimeout 作为兼容方案
    */
   animate() {
     if (!this.isRunning) return
@@ -86,8 +90,13 @@ class AnimationLoop {
         this.lastFrameTime = currentTime
       }
 
-      // 使用 requestAnimationFrame 继续下一帧，避免递归调用的性能问题
-      this.animationId = wx.requestAnimationFrame(() => this.animate())
+      // 使用 Canvas.requestAnimationFrame 或 setTimeout 继续下一帧
+      if (this.frameRenderer.canvas && this.frameRenderer.canvas.requestAnimationFrame) {
+        this.animationId = this.frameRenderer.canvas.requestAnimationFrame(() => this.animate())
+      } else {
+        // 兼容方案：使用 setTimeout
+        this.animationId = setTimeout(() => this.animate(), 16) // 约60fps
+      }
     } catch (error) {
       console.error('动画循环错误:', error)
       this.stop()

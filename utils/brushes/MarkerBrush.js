@@ -78,14 +78,16 @@ class MarkerBrush extends BaseBrush {
     // 生成椭圆形色块的像素点
     const ellipsePixels = this.generateEllipsePixels(blockSize)
 
-    // 3帧抖动效果，每帧都是完整的椭圆形，但位置略有偏移
+    // 减少抖动幅度，让色块更稳定，只保留轻微的动态效果
     const frames = [
       // 第0帧 - 基础位置的椭圆
       ellipsePixels,
-      // 第1帧 - 向左上偏移的椭圆
-      ellipsePixels.map(([x, y]) => [x - 1, y - 1]),
-      // 第2帧 - 向右下偏移的椭圆
-      ellipsePixels.map(([x, y]) => [x + 1, y + 1])
+      // 第1帧 - 轻微向左偏移
+      ellipsePixels.map(([x, y]) => [x - 0.5, y]),
+      // 第2帧 - 轻微向右偏移
+      ellipsePixels.map(([x, y]) => [x + 0.5, y]),
+      // 第3帧 - 回到基础位置
+      ellipsePixels
     ]
 
     return frames
@@ -100,34 +102,40 @@ class MarkerBrush extends BaseBrush {
     const pixels = []
 
     // 椭圆参数：横向更长，模拟马克笔的扁平效果
-    const radiusX = Math.max(3, Math.floor(size * 0.8)) // 横向半径
-    const radiusY = Math.max(2, Math.floor(size * 0.4)) // 纵向半径，更扁
+    const radiusX = Math.max(4, Math.floor(size * 0.9)) // 横向半径，增大以获得更饱满的色块
+    const radiusY = Math.max(3, Math.floor(size * 0.5)) // 纵向半径，增大以获得更饱满的色块
 
-    // 生成椭圆形像素点
+    // 生成椭圆形像素点 - 使用更严格的椭圆方程确保边缘干净
     for (let x = -radiusX; x <= radiusX; x++) {
       for (let y = -radiusY; y <= radiusY; y++) {
         // 椭圆方程：(x/a)² + (y/b)² <= 1
+        // 使用稍微宽松的阈值(1.1)来确保椭圆边缘完整填充
         const ellipseValue = (x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY)
 
-        if (ellipseValue <= 1) {
+        if (ellipseValue <= 1.1) {
           pixels.push([x, y])
         }
       }
     }
 
-    // 添加一些随机边缘点，增加马克笔的自然感
-    this.addRandomEdgePixels(pixels, radiusX, radiusY)
+    // 移除随机边缘处理，保持干净的椭圆形状
+    // this.addRandomEdgePixels(pixels, radiusX, radiusY) // 注释掉毛糙边缘处理
 
     return pixels
   }
 
   /**
    * 添加随机边缘像素，增加马克笔的自然毛边效果
+   * 注释掉此方法以获得干净的大色块效果
    * @param {Array} pixels - 现有像素点数组
    * @param {number} radiusX - 横向半径
    * @param {number} radiusY - 纵向半径
    */
   addRandomEdgePixels(pixels, radiusX, radiusY) {
+    // 为了获得干净的大色块效果，暂时禁用随机边缘处理
+    // 如果需要恢复毛边效果，可以取消下面代码的注释
+
+    /*
     // 在椭圆边缘添加一些随机点
     const edgePoints = [
       // 左右边缘延伸
@@ -145,6 +153,7 @@ class MarkerBrush extends BaseBrush {
         pixels.push(point)
       }
     })
+    */
   }
 
   /**
@@ -155,8 +164,8 @@ class MarkerBrush extends BaseBrush {
   calculateBlockSize(brushSize) {
     const baseSize = brushSize.size || 6
     // 马克笔色块比普通画笔更大，模拟厚重感
-    // 增加尺寸倍数，让色块更明显
-    return Math.max(12, baseSize * 3)
+    // 进一步增加尺寸倍数，让色块更饱满更明显
+    return Math.max(16, baseSize * 4)
   }
 
   /**
@@ -247,7 +256,7 @@ class MarkerBrush extends BaseBrush {
    */
   getDescription() {
     const colorName = this.getCurrentColorName()
-    return `马克笔 - ${colorName}椭圆形色块抖动效果，100%不透明，厚重扁平质感`
+    return `马克笔 - ${colorName}干净椭圆形大色块，100%不透明，厚重扁平质感`
   }
 
   /**

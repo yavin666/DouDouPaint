@@ -62,8 +62,8 @@ class WigglePixel {
 }
 
 /**
- * 动画控制器（性能优化版）
- * 使用 requestAnimationFrame 替代 setTimeout，提升性能
+ * 动画控制器（兼容版）
+ * 使用 Canvas.requestAnimationFrame 或 setTimeout 作为兼容方案
  */
 class AnimationController {
   /**
@@ -72,9 +72,11 @@ class AnimationController {
    * @param {number} width - 画布宽度
    * @param {number} height - 画布高度
    * @param {string} backgroundColor - 背景颜色
+   * @param {Canvas} canvas - Canvas对象（用于requestAnimationFrame）
    */
-  constructor(ctx, width, height, backgroundColor = '#FFFFFF') {
+  constructor(ctx, width, height, backgroundColor = '#FFFFFF', canvas = null) {
     this.ctx = ctx;
+    this.canvas = canvas;
     this.width = width;
     this.height = height;
     this.backgroundColor = backgroundColor;
@@ -113,8 +115,8 @@ class AnimationController {
   }
 
   /**
-   * 启动动画循环（性能优化版）
-   * 使用 requestAnimationFrame + 时间控制，避免递归 setTimeout 的性能问题
+   * 启动动画循环（兼容版）
+   * 使用 Canvas.requestAnimationFrame 或 setTimeout 作为兼容方案
    */
   startAnimation() {
     if (this.animationTimer) return;
@@ -140,8 +142,13 @@ class AnimationController {
         this.lastFrameTime = currentTime;
       }
 
-      // 使用 requestAnimationFrame 继续动画循环，避免递归调用的性能问题
-      this.animationTimer = wx.requestAnimationFrame(animate);
+      // 使用 Canvas.requestAnimationFrame 或 setTimeout 继续动画循环
+      if (this.canvas && this.canvas.requestAnimationFrame) {
+        this.animationTimer = this.canvas.requestAnimationFrame(animate);
+      } else {
+        // 兼容方案：使用 setTimeout
+        this.animationTimer = setTimeout(animate, 16); // 约60fps
+      }
     };
 
     this.lastFrameTime = Date.now(); // 初始化时间戳
@@ -153,8 +160,12 @@ class AnimationController {
    */
   stopAnimation() {
     if (this.animationTimer) {
-      // 使用 wx.cancelAnimationFrame 替代 clearTimeout
-      wx.cancelAnimationFrame(this.animationTimer);
+      // 使用 Canvas.cancelAnimationFrame 或 clearTimeout 作为兼容方案
+      if (this.canvas && this.canvas.cancelAnimationFrame) {
+        this.canvas.cancelAnimationFrame(this.animationTimer);
+      } else {
+        clearTimeout(this.animationTimer);
+      }
       this.animationTimer = null;
     }
     this.lastFrameTime = 0; // 重置时间戳
