@@ -20,11 +20,11 @@ class MarkerBrush extends BaseBrush {
       name: '马克笔'
     })
 
-    // 马克笔预设颜色选项
+    // 马克笔预设颜色选项 - 优化为GIF友好的256色调色板
     this.presetColors = [
-      '#FFEB3B',  // 黄色 - 对应图片中的黄色色块
-      '#2196F3',  // 蓝色 - 对应图片中的蓝色色块
-      '#E91E63'   // 粉红色 - 对应图片中的粉红色色块
+      '#FFFF00',  // 纯黄色 - 简化的黄色，减少颜色变化
+      '#0000FF',  // 纯蓝色 - 简化的蓝色，减少颜色变化
+      '#FF0080'   // 简化的粉红色 - 减少颜色变化
     ]
 
     // 当前选中的颜色索引
@@ -266,7 +266,7 @@ class MarkerBrush extends BaseBrush {
    * @returns {string} 颜色名称
    */
   getCurrentColorName() {
-    const colorNames = ['黄色', '蓝色', '粉红色']
+    const colorNames = ['纯黄色', '纯蓝色', '粉红色']
     return colorNames[this.currentColorIndex] || '未知'
   }
 
@@ -292,7 +292,7 @@ class MarkerBrush extends BaseBrush {
    */
   getDescription() {
     const colorName = this.getCurrentColorName()
-    return `马克笔 - ${colorName}干净椭圆形大色块，100%不透明，厚重扁平质感`
+    return `马克笔 - ${colorName}椭圆形大色块，100%不透明，GIF优化调色板`
   }
 
   /**

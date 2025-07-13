@@ -21,22 +21,22 @@ const BRUSH_TYPES = {
 // 默认画笔配置
 const DEFAULT_BRUSH_CONFIG = {
   [BRUSH_TYPES.PENCIL]: {
-    color: '#000000',
+    color: '#000000',  // 保持纯黑色，这是最基础的颜色
     opacity: 1.0,
     layer: BRUSH_LAYERS.PENCIL,
     audio: '/static/sounds/clip.mp3',
     name: '铅笔'
   },
   [BRUSH_TYPES.MARKER]: {
-    color: '#39C5BB',
-    opacity: 0.8,
+    color: '#FFFF00',  // 使用纯黄色作为默认颜色，与预设颜色保持一致
+    opacity: 1.0,      // 改为100%不透明，减少颜色变化
     layer: BRUSH_LAYERS.MARKER,
     audio: '/static/sounds/clip.mp3',
     name: '马克笔'
   },
   [BRUSH_TYPES.SPRAY]: {
     color: '#666666',
-    opacity: 0.7,
+    opacity: 1.0,
     layer: BRUSH_LAYERS.SPRAY,
     audio: '/static/sounds/clip.mp3',
     name: '喷漆'

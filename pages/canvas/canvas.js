@@ -259,10 +259,14 @@ Page({
       // 执行GIF导出
       wx.showLoading({ title: '正在导出...' })
 
+      // 获取当前透明背景状态
+      const isTransparent = rootStore.getTransparentBackground()
+
       const result = await gifExportManager.exportGif(this, {
         delay: 200,    // 固定延迟200ms
         repeat: 0,     // 无限循环
-        quality: 10    // 固定质量
+        quality: 10,   // 固定质量
+        transparent: isTransparent  // 传递透明背景状态
       }, (progress) => {
         wx.showLoading({
           title: progress.message || `${progress.stage} ${progress.progress}%`

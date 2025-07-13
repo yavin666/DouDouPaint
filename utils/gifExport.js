@@ -137,7 +137,8 @@ async function callGifCloudFunction(fileIds, options = {}) {
   const {
     delay = 200,
     repeat = 0,
-    quality = 10
+    quality = 10,
+    transparent = false
   } = options;
 
   try {
@@ -148,7 +149,8 @@ async function callGifCloudFunction(fileIds, options = {}) {
         options: {
           delay,
           repeat,
-          quality
+          quality,
+          transparent
         }
       }
     });

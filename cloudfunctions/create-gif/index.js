@@ -131,7 +131,7 @@ async function downloadImages(fileIds) {
  * 提供更好的颜色处理和编码质量
  */
 async function createGifWithGifwrap(imageBuffers, options = {}) {
-  const { delay = 500, repeat = 0, maxSize = 300 } = options
+  const { delay = 500, repeat = 0, maxSize = 300, transparent = false } = options
 
   console.log('开始使用 gifwrap 创建动画GIF...')
 
@@ -169,6 +169,22 @@ async function createGifWithGifwrap(imageBuffers, options = {}) {
         // 调整尺寸
         image.resize(width, height)
 
+        // 如果是透明背景模式，确保透明像素保持透明
+        if (transparent) {
+          // 遍历像素，将白色背景转换为透明
+          image.scan(0, 0, image.bitmap.width, image.bitmap.height, function (_, __, idx) {
+            const red = this.bitmap.data[idx + 0]
+            const green = this.bitmap.data[idx + 1]
+            const blue = this.bitmap.data[idx + 2]
+            const alpha = this.bitmap.data[idx + 3]
+
+            // 如果是白色或接近白色的像素，设为透明
+            if (red > 250 && green > 250 && blue > 250 && alpha > 250) {
+              this.bitmap.data[idx + 3] = 0 // 设置为透明
+            }
+          })
+        }
+
         // 创建 GifFrame，延迟时间以百分之一秒为单位
         const frame = new GifFrame(image.bitmap, {
           delayCentisecs: Math.floor(delay / 10) // 将毫秒转换为百分之一秒
@@ -187,9 +203,32 @@ async function createGifWithGifwrap(imageBuffers, options = {}) {
       throw new Error('没有成功处理的帧')
     }
 
+    // 颜色量化处理 - 解决256色限制问题
+    console.log('开始颜色量化处理...')
+    try {
+      // 使用 Wu 量化算法，限制为 200 色（给透明色和渐变留空间）
+      GifUtil.quantizeWu(frames, 200, 4)
+      console.log('颜色量化完成 - Wu算法')
+    } catch (quantizeError) {
+      console.warn('Wu量化失败，尝试 Dekker 算法:', quantizeError.message)
+      try {
+        GifUtil.quantizeDekker(frames, 180)
+        console.log('颜色量化完成 - Dekker算法')
+      } catch (dekkerError) {
+        console.warn('Dekker量化失败，尝试 Sorokin 算法:', dekkerError.message)
+        GifUtil.quantizeSorokin(frames, 150, 'min-pop')
+        console.log('颜色量化完成 - Sorokin算法')
+      }
+    }
+
     // 使用 GifCodec 编码 GIF
     console.log('开始编码GIF...')
-    const codec = new GifCodec()
+    console.log(`透明背景模式: ${transparent ? '开启' : '关闭'}`)
+
+    // 配置 GifCodec，支持透明度
+    const codecOptions = transparent ? { transparentRGB: 0x000000 } : {}
+    const codec = new GifCodec(codecOptions)
+
     const gif = await codec.encodeGif(frames, {
       loops: repeat // 0 表示无限循环
     })
@@ -201,6 +240,8 @@ async function createGifWithGifwrap(imageBuffers, options = {}) {
     console.log(`- 帧数: ${frames.length}`)
     console.log(`- 大小: ${gifBuffer.length} bytes`)
     console.log(`- 延迟: ${delay}ms`)
+    console.log(`- 颜色处理: 已优化，确保256色兼容`)
+    console.log(`- 透明背景: ${transparent ? '支持' : '不支持'}`)
 
     return gifBuffer
 
@@ -209,3 +250,5 @@ async function createGifWithGifwrap(imageBuffers, options = {}) {
     throw error
   }
 }
+
+
