@@ -12,16 +12,25 @@ class TouchInteractionManager {
     this.isDrawing = false;
     this.lastX = 0;
     this.lastY = 0;
-    
+
     // 音频控制配置
     this.audioCounter = 0;
     this.audioInterval = options.audioInterval || 10;
     this.lastAudioTime = 0;
     this.audioTimeInterval = options.audioTimeInterval || 300;
-    
-    // 绘制配置
+
+    // 绘制配置（性能优化）
     this.pixelSpacing = options.pixelSpacing || 6;
-    
+    this.maxPixelsPerMove = options.maxPixelsPerMove || 8; // 单次移动最大像素数
+    this.densityControl = options.densityControl || true; // 启用密度控制
+
+    // 性能监控
+    this.performanceStats = {
+      pixelsCreated: 0,
+      movesProcessed: 0,
+      lastResetTime: Date.now()
+    };
+
     // 回调函数
     this.callbacks = {
       onDrawStart: options.onDrawStart || (() => {}),
@@ -31,8 +40,36 @@ class TouchInteractionManager {
       onVibrate: options.onVibrate || (() => {}),
       onPlacePixel: options.onPlacePixel || (() => {})
     };
-    
-    console.log('TouchInteractionManager 初始化完成');
+
+    console.log('TouchInteractionManager 初始化完成（性能优化版）');
+  }
+
+  /**
+   * 安全地处理事件阻止 - 避免 cancelable=false 的错误
+   * @param {Event} e - 事件对象
+   * @param {boolean} preventDefault - 是否阻止默认行为
+   * @param {boolean} stopPropagation - 是否阻止事件冒泡
+   */
+  safePreventEvent(e, preventDefault = true, stopPropagation = true) {
+    if (!e) return;
+
+    // 只在事件可取消时才调用 preventDefault()
+    if (preventDefault && e.cancelable && typeof e.preventDefault === 'function') {
+      try {
+        e.preventDefault();
+      } catch (error) {
+        console.warn('preventDefault 调用失败:', error.message);
+      }
+    }
+
+    // 阻止事件冒泡
+    if (stopPropagation && typeof e.stopPropagation === 'function') {
+      try {
+        e.stopPropagation();
+      } catch (error) {
+        console.warn('stopPropagation 调用失败:', error.message);
+      }
+    }
   }
   
   /**
@@ -51,19 +88,18 @@ class TouchInteractionManager {
    * @returns {Object|null} 处理后的触摸信息，如果无效则返回null
    */
   preprocessTouchEvent(e) {
-    // 阻止事件冒泡和默认行为
-    if (e.preventDefault) e.preventDefault();
-    if (e.stopPropagation) e.stopPropagation();
-    
+    // 使用安全的事件阻止方法
+    this.safePreventEvent(e, true, true);
+
     // 验证触摸点
     if (!e.touches || e.touches.length === 0) {
       return null;
     }
-    
+
     const touch = e.touches[0];
     const x = touch.pageX - this.canvasLeft;
     const y = touch.pageY - this.canvasTop;
-    
+
     return { x, y, touch };
   }
   
@@ -126,8 +162,8 @@ class TouchInteractionManager {
   }
 
   /**
-   * 优化的路径插值算法
-   * 使用更高效的算法在两点之间插值绘制像素
+   * 优化的路径插值算法（性能增强版）
+   * 使用密度控制和自适应算法减少像素创建开销
    * @param {number} x0 - 起始点X坐标
    * @param {number} y0 - 起始点Y坐标
    * @param {number} x1 - 结束点X坐标
@@ -141,14 +177,20 @@ class TouchInteractionManager {
     // 如果距离太小，直接在终点绘制
     if (distance < 1) {
       this.callbacks.onPlacePixel(x1, y1, true);
+      this.updatePerformanceStats(1);
       return;
     }
 
-    // 计算步数，使用自适应间距
-    const adaptiveSpacing = this.calculateAdaptiveSpacing(distance);
-    const steps = Math.max(1, Math.ceil(distance / adaptiveSpacing));
+    // 计算步数，使用优化的自适应间距
+    const adaptiveSpacing = this.calculateOptimizedSpacing(distance);
+    let steps = Math.max(1, Math.ceil(distance / adaptiveSpacing));
 
-    // 使用Bresenham算法的思想进行优化插值
+    // 密度控制：限制单次移动的最大像素数
+    if (this.densityControl && steps > this.maxPixelsPerMove) {
+      steps = this.maxPixelsPerMove;
+    }
+
+    // 使用优化的插值算法
     const stepX = (x1 - x0) / steps;
     const stepY = (y1 - y0) / steps;
 
@@ -160,28 +202,84 @@ class TouchInteractionManager {
       const shouldPlayAudio = (i === steps) && this.shouldPlayAudio();
       this.callbacks.onPlacePixel(px, py, shouldPlayAudio);
     }
+
+    this.updatePerformanceStats(steps);
   }
 
   /**
-   * 计算自适应像素间距
-   * 根据移动速度动态调整像素间距，提高绘制效果
+   * 优化的自适应像素间距计算
+   * 根据移动速度和性能状况动态调整像素间距
    * @param {number} distance - 移动距离
-   * @returns {number} 自适应间距
+   * @returns {number} 优化的自适应间距
    */
-  calculateAdaptiveSpacing(distance) {
-    // 基础间距
+  calculateOptimizedSpacing(distance) {
     const baseSpacing = this.pixelSpacing;
 
-    // 根据移动距离调整间距
-    if (distance > 50) {
+    // 性能自适应：根据当前性能状况调整间距
+    const performanceFactor = this.getPerformanceFactor();
+
+    // 根据移动距离和性能状况调整间距
+    let spacing = baseSpacing;
+
+    if (distance > 80) {
+      // 超快速移动时大幅增加间距
+      spacing = baseSpacing * 2.0 * performanceFactor;
+    } else if (distance > 50) {
       // 快速移动时增加间距，减少计算量
-      return baseSpacing * 1.5;
+      spacing = baseSpacing * 1.5 * performanceFactor;
     } else if (distance < 10) {
-      // 慢速移动时减少间距，提高精度
-      return baseSpacing * 0.7;
+      // 慢速移动时适度减少间距，但考虑性能因素
+      spacing = baseSpacing * Math.max(0.8, performanceFactor);
+    } else {
+      // 中等速度时应用性能因子
+      spacing = baseSpacing * performanceFactor;
     }
 
-    return baseSpacing;
+    return Math.max(2, spacing); // 确保最小间距
+  }
+
+  /**
+   * 获取性能因子（用于动态调整绘制密度）
+   * @returns {number} 性能因子（1.0为正常，>1.0为降低密度）
+   */
+  getPerformanceFactor() {
+    const currentTime = Date.now();
+    const timeSinceReset = currentTime - this.performanceStats.lastResetTime;
+
+    // 每5秒重置一次统计
+    if (timeSinceReset > 5000) {
+      this.resetPerformanceStats();
+      return 1.0;
+    }
+
+    // 根据像素创建频率调整性能因子
+    const pixelsPerSecond = this.performanceStats.pixelsCreated / (timeSinceReset / 1000);
+
+    if (pixelsPerSecond > 100) {
+      return 1.5; // 高频率时降低密度
+    } else if (pixelsPerSecond > 50) {
+      return 1.2; // 中等频率时适度降低密度
+    }
+
+    return 1.0; // 正常密度
+  }
+
+  /**
+   * 更新性能统计
+   * @param {number} pixelCount - 本次创建的像素数量
+   */
+  updatePerformanceStats(pixelCount) {
+    this.performanceStats.pixelsCreated += pixelCount;
+    this.performanceStats.movesProcessed++;
+  }
+
+  /**
+   * 重置性能统计
+   */
+  resetPerformanceStats() {
+    this.performanceStats.pixelsCreated = 0;
+    this.performanceStats.movesProcessed = 0;
+    this.performanceStats.lastResetTime = Date.now();
   }
   
   /**
@@ -204,12 +302,14 @@ class TouchInteractionManager {
    * @param {Event} e - 触摸事件对象
    */
   handleTouchCancel(e) {
-    // 只处理必要的事件阻止，不做复杂处理
-    if (e && e.preventDefault) e.preventDefault();
+    // 使用安全的事件处理方法，touchcancel 事件通常不可取消
+    // 这里只尝试阻止事件冒泡，不强制阻止默认行为
+    this.safePreventEvent(e, false, true);
 
     // 简单重置绘制状态，不触发任何回调
     this.isDrawing = false;
 
+    console.log('TouchCancel: 绘制状态已重置');
   }
   
   /**

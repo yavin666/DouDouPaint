@@ -167,17 +167,31 @@ class pixelStore {
 
   
   /**
-   * 更新活跃像素（动画帧更新）
+   * 更新活跃像素（优化的动画帧更新）
    */
   updateActivePixels() {
-    // 批量更新所有活跃像素的帧，减少单独处理的开销
-    const pixelArray = Array.from(this.activePixels.values())
+    const pixelCount = this.activePixels.size
+    if (pixelCount === 0) return
 
-    // 使用批量处理，每次处理一批像素
-    const batchSize = 100
-    for (let i = 0; i < pixelArray.length; i += batchSize) {
-      const batch = pixelArray.slice(i, i + batchSize)
-      batch.forEach(pixel => pixel.update())
+    // 性能优化：根据像素数量动态调整批量大小
+    const batchSize = pixelCount > 500 ? 200 : 100
+
+    // 直接遍历Map，避免创建中间数组
+    let count = 0
+    let batch = []
+
+    for (const pixel of this.activePixels.values()) {
+      batch.push(pixel)
+      count++
+
+      // 当批次满了或者是最后一批时，处理批次
+      if (batch.length >= batchSize || count === pixelCount) {
+        // 使用for循环代替forEach，性能更好
+        for (let i = 0; i < batch.length; i++) {
+          batch[i].update()
+        }
+        batch = [] // 清空批次
+      }
     }
   }
   

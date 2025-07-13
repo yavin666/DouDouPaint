@@ -5,7 +5,7 @@
     catchtouchstart="touchStart"
     catchtouchmove="touchMove"
     catchtouchend="touchEnd"
-    catchtouchcancel="touchCancel"
+    bindtouchcancel="touchCancel"
     disable-scroll="true">
   </canvas>
   <view class="toolbar">

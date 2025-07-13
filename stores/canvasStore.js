@@ -70,7 +70,7 @@ class CanvasStore {
             const canvasWidth = res[0].width || 375
             const canvasHeight = res[0].height || 500
 
-            // 直接设置画布尺寸，不使用高分辨率
+            // 直接设置画布尺寸，不使用缩放
             canvas.width = canvasWidth
             canvas.height = canvasHeight
 
@@ -100,10 +100,10 @@ class CanvasStore {
 
             // 设置Canvas层
             this.canvasState.animationStore.setupCanvas(
-              canvas, 
-              ctx, 
-              canvasWidth, 
-              canvasHeight, 
+              canvas,
+              ctx,
+              canvasWidth,
+              canvasHeight,
               this.rootStore.getCurrentBackgroundColor()
             )
 
@@ -212,14 +212,17 @@ class CanvasStore {
   }
 
   /**
-   * 优化的渲染调度
-   * 避免频繁的渲染调用，提升性能
+   * 优化的渲染调度（与动画帧同步）
+   * 避免过度渲染，让渲染与3帧抖动动画同步
    */
   scheduleRender() {
+    // 检查是否已有渲染任务在进行
     if (this.renderState.isRendering || this.renderState.frameRequestId) {
       return // 已有渲染任务在进行
     }
 
+    // 立即调度渲染，不进行额外的频率限制
+    // 因为动画循环已经控制了更新频率（300ms间隔）
     this.renderState.frameRequestId = wx.nextTick(() => {
       this.renderFrame()
       this.renderState.frameRequestId = null
@@ -288,12 +291,12 @@ class CanvasStore {
       // 取消待执行的渲染任务
       this.renderState.frameRequestId = null
     }
-    
+
     this.canvasState.canvas = null
     this.canvasState.ctx = null
     this.canvasState.animationStore = null
     this.canvasState.isInitialized = false
-    
+
     console.log('CanvasStore: 资源已销毁')
   }
 }

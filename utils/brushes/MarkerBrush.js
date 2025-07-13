@@ -5,7 +5,73 @@ const { BRUSH_TYPES, BRUSH_LAYERS } = require('./brushConstants')
  * 马克笔画笔类
  * 特点：椭圆形大色块抖动效果，三种预设颜色，100%不透明，中间层级
  * 形状优化：使用椭圆形像素组合，模拟真实马克笔的扁平厚重效果
+ * 性能优化：使用静态缓存和优化的椭圆计算算法
  */
+
+// 静态缓存 - 所有MarkerBrush实例共享，避免重复计算
+const STATIC_FRAME_CACHE = new Map()
+const STATIC_ELLIPSE_CACHE = new Map()
+
+// 预计算常用尺寸的椭圆形状（性能优化）
+const COMMON_SIZES = [4, 6, 8, 10, 12, 16, 20, 24]
+
+/**
+ * 预计算常用尺寸的椭圆形状数据
+ */
+function precomputeCommonEllipses() {
+  if (STATIC_ELLIPSE_CACHE.size > 0) return // 已经预计算过
+
+  console.log('MarkerBrush: 开始预计算常用椭圆形状...')
+  const startTime = Date.now()
+
+  for (const size of COMMON_SIZES) {
+    const ellipseKey = `ellipse_${size}`
+    if (!STATIC_ELLIPSE_CACHE.has(ellipseKey)) {
+      const pixels = generateOptimizedEllipse(size)
+      STATIC_ELLIPSE_CACHE.set(ellipseKey, pixels)
+    }
+  }
+
+  const endTime = Date.now()
+  console.log(`MarkerBrush: 预计算完成，耗时 ${endTime - startTime}ms，缓存 ${STATIC_ELLIPSE_CACHE.size} 个椭圆形状`)
+}
+
+/**
+ * 优化的椭圆生成算法（静态方法，性能优化）
+ * @param {number} size - 椭圆大小
+ * @returns {Array} 椭圆像素点坐标数组
+ */
+function generateOptimizedEllipse(size) {
+  const pixels = []
+
+  // 优化的椭圆参数计算
+  const radiusX = Math.max(3, Math.floor(size * 0.8)) // 减少横向半径倍数
+  const radiusY = Math.max(2, Math.floor(size * 0.5)) // 减少纵向半径倍数
+
+  // 预计算常用值，减少重复计算
+  const radiusXSquared = radiusX * radiusX
+  const radiusYSquared = radiusY * radiusY
+  const threshold = 1.0 // 使用更严格的阈值，减少像素点数量
+
+  // 优化的椭圆扫描算法
+  for (let x = -radiusX; x <= radiusX; x++) {
+    const xSquaredTerm = (x * x) / radiusXSquared
+
+    // 提前计算y的范围，减少不必要的计算
+    const maxY = Math.floor(radiusY * Math.sqrt(Math.max(0, threshold - xSquaredTerm)))
+
+    for (let y = -maxY; y <= maxY; y++) {
+      const ellipseValue = xSquaredTerm + (y * y) / radiusYSquared
+
+      if (ellipseValue <= threshold) {
+        pixels.push([x, y])
+      }
+    }
+  }
+
+  return pixels
+}
+
 class MarkerBrush extends BaseBrush {
   /**
    * 构造函数
@@ -16,7 +82,7 @@ class MarkerBrush extends BaseBrush {
       ...config,
       brushType: BRUSH_TYPES.MARKER,
       layer: BRUSH_LAYERS.MARKER,
-      opacity: 1,  // 马克笔80%透明度
+      opacity: 1,  // 马克笔100%不透明
       name: '马克笔'
     })
 
@@ -32,6 +98,17 @@ class MarkerBrush extends BaseBrush {
 
     // 设置默认颜色为第一个预设颜色
     this.color = this.presetColors[this.currentColorIndex]
+
+    // 性能优化：在首次创建时预计算常用椭圆形状
+    this.initializeOptimizations()
+  }
+
+  /**
+   * 初始化性能优化（预计算常用形状）
+   */
+  initializeOptimizations() {
+    // 预计算常用尺寸的椭圆形状
+    precomputeCommonEllipses()
   }
 
   /**
@@ -67,25 +144,22 @@ class MarkerBrush extends BaseBrush {
   }
 
   /**
-   * 获取优化的马克笔帧数据（使用缓存避免重复计算）
+   * 获取优化的马克笔帧数据（使用静态缓存避免重复计算）
    * @param {Object} brushSize - 画笔大小配置
    * @returns {Array} 优化的椭圆形色块抖动帧数据
    */
   getOptimizedMarkerFrames(brushSize) {
-    const sizeKey = `${brushSize.size}_${brushSize.label || 'default'}`
+    const size = brushSize.size || 6
+    const sizeKey = `frames_${size}`
 
-    // 使用缓存避免重复计算
-    if (!this.frameCache) {
-      this.frameCache = new Map()
-    }
-
-    if (this.frameCache.has(sizeKey)) {
-      return this.frameCache.get(sizeKey)
+    // 使用静态缓存避免重复计算
+    if (STATIC_FRAME_CACHE.has(sizeKey)) {
+      return STATIC_FRAME_CACHE.get(sizeKey)
     }
 
     // 生成简化的椭圆色块帧数据
     const optimizedFrames = this.generateOptimizedMarkerFrames(brushSize)
-    this.frameCache.set(sizeKey, optimizedFrames)
+    STATIC_FRAME_CACHE.set(sizeKey, optimizedFrames)
 
     return optimizedFrames
   }
@@ -96,48 +170,48 @@ class MarkerBrush extends BaseBrush {
    * @returns {Array} 优化的帧数据
    */
   generateOptimizedMarkerFrames(brushSize) {
-    // 增大马克笔色块尺寸，使其更明显
-    const baseSize = Math.max(6, brushSize.size * 1.5)
+    const size = brushSize.size || 6
 
-    // 生成更大的椭圆形像素点，确保色块效果
-    const ellipsePixels = this.generateSmoothEllipse(baseSize)
+    // 使用静态缓存的椭圆形状
+    const ellipsePixels = this.getOptimizedEllipse(size)
 
-    // 简化的3帧抖动动画
+    // 3帧抖动动画（增强复古粗糙质感）
     const frames = [
       ellipsePixels,                                           // 第0帧 - 基础位置
-      ellipsePixels.map(([x, y]) => [x - 0.2, y]),           // 第1帧 - 轻微左移
-      ellipsePixels.map(([x, y]) => [x + 0.2, y])            // 第2帧 - 轻微右移
+      ellipsePixels.map(([x, y]) => [x - 1.0, y - 0.2]),     // 第1帧 - 左下移动，增加垂直抖动
+      ellipsePixels.map(([x, y]) => [x + 1.0, y + 0.2])      // 第2帧 - 右上移动，增加垂直抖动
     ]
 
     return frames
   }
 
   /**
-   * 生成平滑的椭圆形像素点（大色块，边缘平滑）
+   * 获取优化的椭圆形状（使用静态缓存）
+   * @param {number} size - 椭圆大小
+   * @returns {Array} 椭圆像素点坐标数组
+   */
+  getOptimizedEllipse(size) {
+    const ellipseKey = `ellipse_${size}`
+
+    // 检查静态缓存
+    if (STATIC_ELLIPSE_CACHE.has(ellipseKey)) {
+      return STATIC_ELLIPSE_CACHE.get(ellipseKey)
+    }
+
+    // 如果缓存中没有，使用优化算法生成
+    const pixels = generateOptimizedEllipse(size)
+    STATIC_ELLIPSE_CACHE.set(ellipseKey, pixels)
+
+    return pixels
+  }
+
+  /**
+   * 生成平滑的椭圆形像素点（保留兼容性，但使用优化版本）
    * @param {number} size - 色块大小
    * @returns {Array} 平滑椭圆形像素点坐标数组
    */
   generateSmoothEllipse(size) {
-    const pixels = []
-
-    // 增大椭圆参数，创建更大的色块
-    const radiusX = Math.max(5, Math.floor(size * 1.2)) // 更大的横向半径
-    const radiusY = Math.max(3, Math.floor(size * 0.7)) // 更大的纵向半径
-
-    // 使用更宽松的椭圆方程，创建更饱满的色块
-    for (let x = -radiusX; x <= radiusX; x += 1) {
-      for (let y = -radiusY; y <= radiusY; y += 1) {
-        // 椭圆方程：(x/a)² + (y/b)² <= 1
-        // 使用更宽松的阈值(1.2)来创建更饱满的边缘
-        const ellipseValue = (x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY)
-
-        if (ellipseValue <= 1.2) {
-          pixels.push([x, y])
-        }
-      }
-    }
-
-    return pixels
+    return this.getOptimizedEllipse(size)
   }
 
   /**

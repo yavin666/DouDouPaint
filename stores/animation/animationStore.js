@@ -21,7 +21,7 @@ class AnimationStore {
   }
   
   /**
-   * 初始化Canvas（保持向后兼容的接口）
+   * 初始化Canvas
    */
   setupCanvas(canvas, ctx, width, height, backgroundColor) {
     this.frameRenderer.setupCanvas(canvas, ctx, width, height)

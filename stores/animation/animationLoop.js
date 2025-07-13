@@ -1,9 +1,8 @@
 const { makeAutoObservable, reaction } = require('mobx-miniprogram')
-
 /**
  * 动画循环控制器 - 专门负责3帧抖动动画的循环控制
  * 职责单一：只管理动画状态，不负责渲染
- * 性能优化：使用 Canvas.requestAnimationFrame 或 setTimeout 作为兼容方案
+ * 性能优化：调整循环间隔匹配帧更新频率，减少无效调用
  */
 class AnimationLoop {
   constructor(pixelStore, frameRenderer) {
@@ -13,8 +12,11 @@ class AnimationLoop {
     // 动画状态
     this.isRunning = false
     this.animationId = null
-    this.frameInterval = 300 // 3帧抖动，每帧300ms（每秒3.33帧，适合3帧循环）
+    this.frameInterval = 200 // 3帧抖动，每帧200ms（每秒5帧，更活跃的抖动效果）
     this.lastFrameTime = 0 // 上次更新帧的时间戳
+
+    // 固定循环间隔，确保严格的3帧循环
+    this.checkInterval = 50 // 检查间隔50ms，确保及时响应帧更新
 
     // 设置响应式监听
     this.setupReactions()
@@ -69,17 +71,18 @@ class AnimationLoop {
   }
   
   /**
-   * 动画循环（兼容版）
-   * 使用 Canvas.requestAnimationFrame 或 setTimeout 作为兼容方案
+   * 简化的动画循环
+   * 严格按照300ms间隔进行3帧循环，确保抖动效果稳定
    */
   animate() {
     if (!this.isRunning) return
 
     try {
       const currentTime = Date.now()
+      const timeSinceLastFrame = currentTime - this.lastFrameTime
 
       // 检查是否到了更新帧的时间
-      if (currentTime - this.lastFrameTime >= this.frameInterval) {
+      if (timeSinceLastFrame >= this.frameInterval) {
         // 更新所有像素到下一帧
         this.pixelStore.updateActivePixels()
 
@@ -90,12 +93,12 @@ class AnimationLoop {
         this.lastFrameTime = currentTime
       }
 
-      // 使用 Canvas.requestAnimationFrame 或 setTimeout 继续下一帧
+      // 使用固定间隔继续下一帧
       if (this.frameRenderer.canvas && this.frameRenderer.canvas.requestAnimationFrame) {
         this.animationId = this.frameRenderer.canvas.requestAnimationFrame(() => this.animate())
       } else {
-        // 兼容方案：使用 setTimeout
-        this.animationId = setTimeout(() => this.animate(), 16) // 约60fps
+        // 兼容方案：使用固定检查间隔
+        this.animationId = setTimeout(() => this.animate(), this.checkInterval)
       }
     } catch (error) {
       console.error('动画循环错误:', error)

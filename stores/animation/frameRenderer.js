@@ -11,10 +11,10 @@ class FrameRenderer {
     this.canvasWidth = 0
     this.canvasHeight = 0
     this.backgroundColor = '#FFFFFF'
-    
+
     makeAutoObservable(this)
   }
-  
+
   /**
    * 设置Canvas引用
    */
@@ -23,6 +23,8 @@ class FrameRenderer {
     this.ctx = ctx
     this.canvasWidth = width
     this.canvasHeight = height
+
+    console.log(`FrameRenderer: Canvas设置完成，尺寸: ${width}x${height}`)
   }
   
   /**
@@ -135,6 +137,7 @@ class FrameRenderer {
     // 恢复透明度
     this.ctx.globalAlpha = originalAlpha
   }
+
 }
 
 module.exports = { FrameRenderer }
