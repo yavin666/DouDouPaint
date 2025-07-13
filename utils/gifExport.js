@@ -4,7 +4,7 @@
  * 前端负责帧捕获和上传，云函数负责GIF合成
  */
 
-const { shareCloudGif, saveCloudGifToAlbum, getCloudFileUrl } = require('./cloudStorage');
+const { checkCloudInit } = require('./cloudStorage');
 
 /**
  * 将Canvas转换为临时图片文件
@@ -86,6 +86,9 @@ async function capture3FramesAsImages(frameCapture, canvas) {
  * @returns {Promise<Array<string>>} 云存储文件ID数组
  */
 async function uploadImagesToCloud(imagePaths, onProgress) {
+  // 检查云开发初始化
+  checkCloudInit()
+
   const fileIds = [];
 
   for (let i = 0; i < imagePaths.length; i++) {
@@ -139,7 +142,7 @@ async function callGifCloudFunction(fileIds, options = {}) {
 
   try {
     const result = await wx.cloud.callFunction({
-      name: 'generateGif',
+      name: 'create-gif',
       data: {
         fileIds: fileIds,
         options: {
@@ -158,6 +161,46 @@ async function callGifCloudFunction(fileIds, options = {}) {
 
   } catch (error) {
     console.error('调用云函数失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 下载GIF到本地
+ * @param {string} fileID - 云存储文件ID
+ * @returns {Promise<string>} 本地文件路径
+ */
+async function downloadGifToLocal(fileID) {
+  try {
+    // 获取云文件的临时链接
+    const result = await wx.cloud.getTempFileURL({
+      fileList: [fileID]
+    });
+
+    if (!result.fileList || result.fileList.length === 0) {
+      throw new Error('获取文件链接失败');
+    }
+
+    const tempFileURL = result.fileList[0].tempFileURL;
+
+    // 下载文件到本地
+    const downloadResult = await new Promise((resolve, reject) => {
+      wx.downloadFile({
+        url: tempFileURL,
+        success: resolve,
+        fail: reject
+      });
+    });
+
+    if (downloadResult.statusCode !== 200) {
+      throw new Error(`下载失败，状态码: ${downloadResult.statusCode}`);
+    }
+
+    console.log('GIF下载成功:', downloadResult.tempFilePath);
+    return downloadResult.tempFilePath;
+
+  } catch (error) {
+    console.error('下载GIF失败:', error);
     throw error;
   }
 }
@@ -321,6 +364,7 @@ module.exports = {
   capture3FramesAsImages,
   uploadImagesToCloud,
   callGifCloudFunction,
+  downloadGifToLocal,
   exportGifWithCloud,
   showCloudGifOptions
 }

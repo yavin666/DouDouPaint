@@ -1,8 +1,7 @@
 // pages/canvas/canvas.js
 const { createStoreBindings } = require('mobx-miniprogram-bindings')
 const { rootStore } = require('../../stores/rootStore')
-const { showCloudGifOptions, callGifCloudFunction } = require('../../utils/gifExport')
-const { exportFramesForBackend, showFrameExportOptions } = require('../../utils/frameExport')
+const { gifExportManager } = require('../../utils/exportManager')
 const { TouchInteractionManager } = require('../../utils/touchInteractionManager')
 
 
@@ -234,90 +233,152 @@ Page({
   
 
 
-  // 新的简化导出方法 - 导出帧数据给后端
-  exportFramesToBackend: async function() {
+  /**
+   * 导出GIF动画
+   */
+  exportAnimation: async function() {
     if (!this.canvas) {
-      wx.showToast({ title: '画布未初始化', icon: 'none' });
-      return;
-    }
-
-    // 使用新的简化导出功能
-    showFrameExportOptions(this);
-  },
-
-  // 云开发GIF导出功能 - 固定3帧
-  exportGifWithCloud: async function() {
-    if (!this.canvas || !this.animationStore) {
-      wx.showToast({ title: '画布未初始化', icon: 'none' });
-      return;
+      wx.showToast({ title: '画布未初始化', icon: 'none' })
+      return
     }
 
     // 检查是否有绘制内容
-    if (this.animationStore.pixelStore.activePixels.size === 0) {
-      wx.showToast({ title: '画布为空，请先绘制内容', icon: 'none' });
-      return;
+    if (!this.animationStore || this.animationStore.pixelStore.activePixels.size === 0) {
+      wx.showToast({ title: '画布为空，请先绘制内容', icon: 'none' })
+      return
     }
 
-    // 简化确认对话框
-    const confirmed = await new Promise(resolve => {
-      wx.showModal({
-        title: '生成GIF动画',
-        content: '将生成3帧抖动动画，大约需要10-30秒，是否继续？',
-        confirmText: '开始生成',
-        cancelText: '取消',
-        success: (res) => resolve(res.confirm),
-        fail: () => resolve(false)
-      });
-    });
-
-    if (!confirmed) return;
-
     try {
-      // 捕获3帧图片
-      wx.showLoading({ title: '正在捕获帧...' });
-      const imagePaths = await this.animationStore.capture3FramesAsImages();
+      // 显示确认对话框
+      const confirmed = await gifExportManager.showConfirmDialog()
 
-      if (imagePaths.length === 0) {
-        throw new Error('未能捕获到有效帧');
+      if (!confirmed) {
+        return // 用户取消
       }
 
-      // 上传到云存储
-      wx.showLoading({ title: '正在上传...' });
-      const fileIds = await this.animationStore.frameCapture.uploadImagesToCloud(imagePaths);
+      // 执行GIF导出
+      wx.showLoading({ title: '正在导出...' })
 
-      // 调用云函数合成GIF（固定参数）
-      wx.showLoading({ title: '正在生成GIF...' });
-      const result = await callGifCloudFunction(fileIds, {
+      const result = await gifExportManager.exportGif(this, {
         delay: 200,    // 固定延迟200ms
         repeat: 0,     // 无限循环
         quality: 10    // 固定质量
-      });
+      }, (progress) => {
+        wx.showLoading({
+          title: progress.message || `${progress.stage} ${progress.progress}%`
+        })
+      })
 
-      wx.hideLoading();
+      wx.hideLoading()
 
-      // 清理临时文件
-      try {
-        const fm = wx.getFileSystemManager();
-        imagePaths.forEach(path => fm.unlinkSync(path));
-      } catch (error) {
-        console.warn('清理临时文件失败:', error);
+      if (result.success) {
+        // GIF生成成功，显示结果
+        this.handleGifExportSuccess(result.data)
+      } else {
+        throw new Error(result.message || '导出失败')
       }
 
-      // 显示成功提示并展示操作选项
-      wx.showToast({ title: 'GIF生成成功', icon: 'success' });
-      await showCloudGifOptions(result);
-
     } catch (error) {
-      wx.hideLoading();
-      console.error('GIF导出失败:', error);
-
+      wx.hideLoading()
+      console.error('GIF导出失败:', error)
       wx.showToast({
-        title: error.message || 'GIF生成失败',
+        title: error.message || 'GIF导出失败',
         icon: 'none',
-        duration: 2000
-      });
+        duration: 3000
+      })
     }
   },
+
+  /**
+   * 处理GIF导出成功
+   */
+  handleGifExportSuccess: function(gifData) {
+    console.log('GIF导出成功:', gifData)
+
+    // 保存当前GIF路径供其他方法使用
+    this.currentGifPath = gifData.localPath
+
+    // 检查是否有本地路径（测试版本可能没有）
+    const hasLocalPath = gifData.localPath && gifData.localPath !== null
+
+    wx.showModal({
+      title: 'GIF生成成功',
+      content: hasLocalPath
+        ? `您的动画GIF已生成并下载到本地！\n文件大小: ${gifData.fileSize} 字节`
+        : '您的动画GIF已生成到云端！（测试版本）',
+      confirmText: hasLocalPath ? '分享文件' : '知道了',
+      cancelText: '关闭',
+      success: (res) => {
+        if (res.confirm && hasLocalPath) {
+          // 保存到相册
+          this.saveGifToAlbum(gifData.localPath)
+        }
+      }
+    })
+  },
+
+  /**
+   * 保存GIF到相册（简化版本：只支持分享）
+   */
+  saveGifToAlbum: function(localPath) {
+    console.log('尝试分享GIF文件，路径:', localPath)
+
+    try {
+      // 首先验证文件是否存在
+      const fileManager = wx.getFileSystemManager()
+      try {
+        const stats = fileManager.statSync(localPath)
+        console.log('文件存在，大小:', stats.size, 'bytes')
+      } catch (statError) {
+        console.error('文件不存在或无法访问:', statError)
+        wx.showModal({
+          title: '文件错误',
+          content: '无法找到GIF文件，可能下载失败。',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+        return
+      }
+
+      // 直接分享文件
+      this.shareGifFile(localPath)
+
+    } catch (error) {
+      console.error('分享GIF失败:', error)
+      wx.showToast({
+        title: '分享失败',
+        icon: 'none'
+      })
+    }
+  },
+
+
+
+  /**
+   * 分享GIF文件
+   */
+  shareGifFile: function(localPath) {
+    wx.shareFileMessage({
+      filePath: localPath,
+      success: () => {
+        wx.showToast({
+          title: '分享成功',
+          icon: 'success'
+        })
+      },
+      fail: (error) => {
+        console.error('分享失败:', error)
+        wx.showModal({
+          title: '分享提示',
+          content: '无法直接分享GIF文件，建议通过其他方式保存。',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+      }
+    })
+  },
+
+
 
 
   

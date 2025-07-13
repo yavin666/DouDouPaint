@@ -117,6 +117,11 @@ class FrameCapture {
    * @returns {Promise<Array<string>>} 云存储文件ID数组
    */
   async uploadImagesToCloud(imagePaths, onProgress, maxRetries = 3) {
+    // 检查云开发是否已初始化
+    if (!wx.cloud) {
+      throw new Error('请使用 2.2.3 或以上的基础库以使用云能力')
+    }
+
     const fileIds = []
 
     for (let i = 0; i < imagePaths.length; i++) {

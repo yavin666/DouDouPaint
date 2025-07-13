@@ -1,13 +1,12 @@
 {
-  "name": "generateGif",
+  "name": "create-gif",
   "version": "1.0.0",
-  "description": "云函数：GIF合成",
+  "description": "云函数：使用 gifwrap 库实现高质量 GIF 合成",
   "main": "index.js",
   "dependencies": {
     "wx-server-sdk": "~2.6.3",
-    "sharp": "^0.32.6",
-    "gifencoder": "^2.0.1",
-    "canvas": "^2.11.2"
+    "jimp": "^0.22.10",
+    "gifwrap": "^0.9.4"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

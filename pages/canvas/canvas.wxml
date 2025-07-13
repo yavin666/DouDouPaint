@@ -57,7 +57,7 @@
     <view class="action-buttons">
       <button bindtap="clearCanvas">清空</button>
       <button bindtap="saveImage">{{isTransparentBackground ? '保存透明PNG' : '保存图片'}}</button>
-      <button bindtap="exportGifWithCloud">生成GIF</button>
+      <button bindtap="exportAnimation">生成GIF</button>
     </view>
   </view>
 </view>

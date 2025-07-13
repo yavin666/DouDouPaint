@@ -4,25 +4,14 @@
  */
 
 /**
- * 初始化云开发
+ * 检查云开发是否已初始化
  */
-function initCloud() {
+function checkCloudInit() {
   if (!wx.cloud) {
-    console.error('请使用 2.2.3 或以上的基础库以使用云能力');
-    return false;
+    throw new Error('请使用 2.2.3 或以上的基础库以使用云能力')
   }
-  
-  try {
-    wx.cloud.init({
-      env: 'cloud1-7gk3tqj6c1e40f81', // 您的云环境ID
-      traceUser: true
-    });
-    console.log('云开发初始化成功');
-    return true;
-  } catch (error) {
-    console.error('云开发初始化失败:', error);
-    return false;
-  }
+  // 云开发应该在app.js中已经初始化，这里只做检查
+  return true
 }
 
 /**
@@ -32,9 +21,7 @@ function initCloud() {
  * @returns {Promise<Object>} 上传结果
  */
 async function uploadGifToCloud(localFilePath, fileName) {
-  if (!initCloud()) {
-    throw new Error('云开发初始化失败');
-  }
+  checkCloudInit()
   
   try {
     // 生成唯一文件名
@@ -240,7 +227,7 @@ async function saveCloudGifToAlbum(fileID) {
 }
 
 module.exports = {
-  initCloud,
+  checkCloudInit,
   uploadGifToCloud,
   getCloudFileUrl,
   downloadCloudFile,
