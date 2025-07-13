@@ -22,6 +22,10 @@ class WigglePixel {
     this.size = size; // 画笔大小，默认2x2像素
     this.opacity = opacity; // 透明度
     this.penType = penType; // 画笔类型
+
+    // 不同画笔类型的抖动频率配置
+    this.animationConfig = this.getAnimationConfig(penType);
+    this.lastUpdateTime = Date.now();
   }
   
   /**
@@ -51,10 +55,41 @@ class WigglePixel {
   }
   
   /**
-   * 更新到下一帧
+   * 获取不同画笔类型的动画配置
+   * @param {string} penType - 画笔类型
+   * @returns {Object} 动画配置
+   */
+  getAnimationConfig(penType) {
+    const configs = {
+      'pencil': {
+        frameInterval: 120,  // 铅笔快速抖动：120ms
+        name: '铅笔'
+      },
+      'marker': {
+        frameInterval: 250,  // 马克笔慢速抖动：250ms
+        name: '马克笔'
+      },
+      'spray': {
+        frameInterval: 180,  // 喷漆中等抖动：180ms
+        name: '喷漆'
+      }
+    };
+
+    return configs[penType] || configs['pencil']; // 默认使用铅笔配置
+  }
+
+  /**
+   * 更新到下一帧（基于画笔类型的频率）
    */
   update() {
-    this.currentFrame = (this.currentFrame + 1) % this.frameData.length;
+    const currentTime = Date.now();
+    const timeSinceLastUpdate = currentTime - this.lastUpdateTime;
+
+    // 检查是否到了该画笔类型的更新时间
+    if (timeSinceLastUpdate >= this.animationConfig.frameInterval) {
+      this.currentFrame = (this.currentFrame + 1) % this.frameData.length;
+      this.lastUpdateTime = currentTime;
+    }
   }
 }
 
