@@ -60,14 +60,14 @@ const BRUSH_SIZES = {
     eraserMultiplier: 2.5  // 橡皮擦大小倍数
   },
   medium: {
-    size: 6,
-    spacing: 6,
+    size: 4,  // 从6调整为4，让中号铅笔更细
+    spacing: 5,
     label: '中',
     eraserMultiplier: 2.5
   },
   large: {
-    size: 10,
-    spacing: 8,
+    size: 7,  // 从10调整为7，让大号铅笔更细
+    spacing: 7,
     label: '大',
     eraserMultiplier: 2.5
   }

@@ -139,13 +139,13 @@
 }
 
 .size-medium {
-  width: 10px;
-  height: 10px;
+  width: 8px;   /* 从10px调整为8px，对应size从6调整为4 */
+  height: 8px;
 }
 
 .size-large {
-  width: 14px;
-  height: 14px;
+  width: 12px;  /* 从14px调整为12px，对应size从10调整为7 */
+  height: 12px;
 }
 
 /* 透明背景开关区域 */

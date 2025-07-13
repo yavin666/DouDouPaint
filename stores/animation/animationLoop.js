@@ -12,7 +12,7 @@ class AnimationLoop {
     // 动画状态
     this.isRunning = false
     this.animationId = null
-    this.frameInterval = 200 // 3帧抖动，每帧200ms（每秒5帧，更活跃的抖动效果）
+    this.frameInterval = 120 // 3帧抖动，每帧120ms（每秒8.3帧，更快的抖动效果）
     this.lastFrameTime = 0 // 上次更新帧的时间戳
 
     // 固定循环间隔，确保严格的3帧循环
