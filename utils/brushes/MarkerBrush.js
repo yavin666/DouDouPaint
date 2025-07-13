@@ -12,7 +12,7 @@ const { BRUSH_TYPES, BRUSH_LAYERS } = require('./brushConstants')
 const STATIC_FRAME_CACHE = new Map()
 const STATIC_ELLIPSE_CACHE = new Map()
 
-// 预计算常用尺寸的椭圆形状（性能优化）
+// 预计算常用尺寸的椭圆形状（性能优化）- 包含马克笔专用尺寸
 const COMMON_SIZES = [4, 6, 8, 10, 12, 16, 20, 24]
 
 /**
@@ -44,14 +44,14 @@ function precomputeCommonEllipses() {
 function generateOptimizedEllipse(size) {
   const pixels = []
 
-  // 优化的椭圆参数计算
-  const radiusX = Math.max(3, Math.floor(size * 0.8)) // 减少横向半径倍数
-  const radiusY = Math.max(2, Math.floor(size * 0.5)) // 减少纵向半径倍数
+  // 优化的椭圆参数计算 - 确保不同尺寸有明显区别且边缘平滑
+  const radiusX = Math.max(2, Math.floor(size * 1.2)) // 增加横向半径，确保尺寸区别
+  const radiusY = Math.max(1, Math.floor(size * 0.8)) // 增加纵向半径，保持椭圆比例
 
   // 预计算常用值，减少重复计算
   const radiusXSquared = radiusX * radiusX
   const radiusYSquared = radiusY * radiusY
-  const threshold = 1.0 // 使用更严格的阈值，减少像素点数量
+  const threshold = 1.0 // 使用标准椭圆阈值，确保平滑边缘
 
   // 优化的椭圆扫描算法
   for (let x = -radiusX; x <= radiusX; x++) {
@@ -112,6 +112,26 @@ class MarkerBrush extends BaseBrush {
   }
 
   /**
+   * 获取马克笔专用的尺寸映射
+   * @param {Object} brushSize - 通用画笔大小配置
+   * @returns {number} 马克笔专用尺寸
+   */
+  getMarkerSpecificSize(brushSize) {
+    // 马克笔专用尺寸映射，确保小中大三个尺寸有明显区别
+    const sizeMapping = {
+      small: 6,   // 小号马克笔：6像素
+      medium: 8, // 中号马克笔：12像素
+      large: 16   // 大号马克笔：20像素
+    }
+
+    // 根据当前画笔大小标签获取对应的马克笔尺寸
+    const markerSize = sizeMapping[brushSize.label] || sizeMapping.medium
+
+    console.log(`马克笔尺寸映射: ${brushSize.label} -> ${markerSize}像素`)
+    return markerSize
+  }
+
+  /**
    * 创建像素 - 优化的马克笔整体色块效果
    * @param {number} x - x坐标
    * @param {number} y - y坐标
@@ -121,24 +141,26 @@ class MarkerBrush extends BaseBrush {
    * @returns {string} 像素ID
    */
   createPixel(x, y, frameData, brushSize, pixelStore) {
-    // 使用预计算的椭圆形色块帧数据，避免每次重新计算
-    const markerFrameData = this.getOptimizedMarkerFrames(brushSize)
+    // 使用马克笔专用的尺寸映射
+    const markerSize = this.getMarkerSpecificSize(brushSize)
 
-    // 使用更大的像素尺寸来绘制厚重的色块效果
-    const pixelSize = Math.max(3, Math.floor(brushSize.size * 0.8))
-    const adjustedBrushSize = {
+    // 创建马克笔专用的尺寸配置
+    const markerBrushSize = {
       ...brushSize,
-      size: pixelSize // 增大像素点尺寸，创建厚重色块
+      size: markerSize // 使用马克笔专用尺寸
     }
+
+    // 使用预计算的椭圆形色块帧数据，避免每次重新计算
+    const markerFrameData = this.getOptimizedMarkerFrames(markerBrushSize)
 
     // 添加到像素存储
     return pixelStore.addPixel(
       x,
       y,
-      this.getEffectiveColor(brushSize),
+      this.getEffectiveColor(markerBrushSize),
       markerFrameData,
-      adjustedBrushSize,
-      this.getEffectiveOpacity(brushSize),
+      markerBrushSize,
+      this.getEffectiveOpacity(markerBrushSize),
       this.brushType
     )
   }

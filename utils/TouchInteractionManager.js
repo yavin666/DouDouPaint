@@ -20,8 +20,8 @@ class TouchInteractionManager {
     this.audioTimeInterval = options.audioTimeInterval || 300;
 
     // 绘制配置（性能优化）
-    this.pixelSpacing = options.pixelSpacing || 6;
-    this.maxPixelsPerMove = options.maxPixelsPerMove || 8; // 单次移动最大像素数
+    this.pixelSpacing = options.pixelSpacing || 5; // 优化间距，提高线条连续性
+    this.maxPixelsPerMove = options.maxPixelsPerMove || 6; // 适当增加单次移动最大像素数
     this.densityControl = options.densityControl || true; // 启用密度控制
 
     // 性能监控
@@ -174,10 +174,8 @@ class TouchInteractionManager {
     const dy = Math.abs(y1 - y0);
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // 如果距离太小，直接在终点绘制
-    if (distance < 1) {
-      this.callbacks.onPlacePixel(x1, y1, true);
-      this.updatePerformanceStats(1);
+    // 如果距离太小，跳过绘制，减少不必要的像素创建
+    if (distance < 3) {
       return;
     }
 
@@ -223,19 +221,19 @@ class TouchInteractionManager {
 
     if (distance > 80) {
       // 超快速移动时大幅增加间距
-      spacing = baseSpacing * 2.0 * performanceFactor;
+      spacing = baseSpacing * 3.0 * performanceFactor;
     } else if (distance > 50) {
       // 快速移动时增加间距，减少计算量
-      spacing = baseSpacing * 1.5 * performanceFactor;
+      spacing = baseSpacing * 2.0 * performanceFactor;
     } else if (distance < 10) {
-      // 慢速移动时适度减少间距，但考虑性能因素
-      spacing = baseSpacing * Math.max(0.8, performanceFactor);
+      // 慢速移动时也增加间距，减少像素密度
+      spacing = baseSpacing * Math.max(1.2, performanceFactor);
     } else {
       // 中等速度时应用性能因子
-      spacing = baseSpacing * performanceFactor;
+      spacing = baseSpacing * 1.5 * performanceFactor;
     }
 
-    return Math.max(2, spacing); // 确保最小间距
+    return Math.max(6, spacing); // 增加最小间距，减少像素数量
   }
 
   /**

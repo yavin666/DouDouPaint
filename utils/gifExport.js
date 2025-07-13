@@ -56,8 +56,8 @@ async function capture3FramesAsImages(frameCapture, canvas) {
       // 渲染当前帧
       frameCapture.frameRenderer.renderFrame(frameCapture.pixelStore);
 
-      // 等待渲染完成
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // 等待渲染完成 - 使用微信小程序原生nextTick
+      await new Promise(resolve => wx.nextTick(resolve));
 
       // 转换为临时图片文件
       const tempFilePath = await canvasToTempFile(canvas, 'png', 0.9);

@@ -54,7 +54,7 @@ Page({
     this.touchManager = new TouchInteractionManager({
       audioInterval: 10,
       audioTimeInterval: 300,
-      pixelSpacing: 6,
+      pixelSpacing: 4,
       onDrawStart: (x, y) => {
         console.log(`开始绘制: (${x.toFixed(1)}, ${y.toFixed(1)})`);
       },
@@ -435,27 +435,62 @@ Page({
     };
   },
 
-  // 页面卸载时清理资源
+  // 页面隐藏时暂停动画，防止后台运行导致内存泄漏
+  onHide: function() {
+    console.log('页面隐藏，暂停动画');
+
+    // 暂停动画循环
+    if (rootStore.canvasStore && rootStore.canvasStore.canvasState.animationStore) {
+      rootStore.canvasStore.canvasState.animationStore.animationLoop.pause();
+    }
+  },
+
+  // 页面显示时恢复动画
+  onShow: function() {
+    console.log('页面显示，恢复动画');
+
+    // 恢复动画循环
+    if (rootStore.canvasStore && rootStore.canvasStore.canvasState.animationStore) {
+      rootStore.canvasStore.canvasState.animationStore.animationLoop.resume();
+    }
+  },
+
+  // 页面卸载时清理资源 - 优化的清理顺序
   onUnload: function() {
     console.log('页面卸载，清理资源');
 
-    // 清理触摸交互管理器
+    // 1. 首先停止所有动画，防止在清理过程中继续运行
+    if (rootStore.canvasStore && rootStore.canvasStore.canvasState.animationStore) {
+      rootStore.canvasStore.canvasState.animationStore.animationLoop.destroy();
+    }
+
+    // 2. 清理Canvas动画帧（原生requestAnimationFrame会自动清理）
+
+    // 3. 清理触摸交互管理器
     if (this.touchManager) {
       this.touchManager.destroy();
       this.touchManager = null;
     }
 
-    // 清理CanvasStore资源
+    // 4. 清理 MobX 绑定
+    if (this.storeBindings) {
+      this.storeBindings.destroyStoreBindings();
+      this.storeBindings = null;
+    }
+
+    // 5. 清理CanvasStore资源
     if (rootStore.canvasStore) {
       rootStore.canvasStore.destroy();
     }
 
-    // 清理 MobX 绑定
-    if (this.storeBindings) {
-      this.storeBindings.destroyStoreBindings();
-    }
-
-    // 清理动画控制器
+    // 6. 最后清理根Store
     rootStore.destroy();
+
+    // 7. 清理页面引用
+    this.canvas = null;
+    this.ctx = null;
+    this.animationStore = null;
+
+    console.log('页面资源清理完成');
   }
 });

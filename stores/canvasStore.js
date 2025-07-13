@@ -284,18 +284,49 @@ class CanvasStore {
   }
 
   /**
-   * 销毁资源
+   * 销毁资源 - 彻底清理所有状态，防止内存泄漏
    */
   destroy() {
+    // 1. 取消待执行的渲染任务
     if (this.renderState.frameRequestId) {
-      // 取消待执行的渲染任务
       this.renderState.frameRequestId = null
     }
 
-    this.canvasState.canvas = null
-    this.canvasState.ctx = null
-    this.canvasState.animationStore = null
-    this.canvasState.isInitialized = false
+    // 2. 销毁动画系统
+    if (this.canvasState.animationStore) {
+      this.canvasState.animationStore.destroy()
+      this.canvasState.animationStore = null
+    }
+
+    // 3. 清理画布状态
+    this.canvasState = {
+      canvas: null,
+      ctx: null,
+      canvasLeft: 0,
+      canvasTop: 0,
+      canvasWidth: 0,
+      canvasHeight: 0,
+      isInitialized: false,
+      animationStore: null
+    }
+
+    // 4. 清理渲染状态
+    this.renderState = {
+      isRendering: false,
+      frameRequestId: null,
+      lastRenderTime: 0,
+      renderCount: 0
+    }
+
+    // 5. 清理性能统计
+    this.performance = {
+      renderCount: 0,
+      pixelPlaceCount: 0,
+      lastPerformanceCheck: Date.now()
+    }
+
+    // 6. 清理根Store引用
+    this.rootStore = null
 
     console.log('CanvasStore: 资源已销毁')
   }

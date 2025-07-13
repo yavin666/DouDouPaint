@@ -25,7 +25,12 @@ class WigglePixel {
 
     // 不同画笔类型的抖动频率配置
     this.animationConfig = this.getAnimationConfig(penType);
-    this.lastUpdateTime = Date.now();
+
+    // 移除独立的时间跟踪，改为由全局动画循环控制
+    // this.lastUpdateTime = Date.now(); // 注释掉，不再需要
+
+    // 添加帧更新计数器，用于不同画笔类型的不同更新频率
+    this.frameUpdateCounter = 0;
   }
   
   /**
@@ -62,15 +67,15 @@ class WigglePixel {
   getAnimationConfig(penType) {
     const configs = {
       'pencil': {
-        frameInterval: 120,  // 铅笔快速抖动：120ms
+        updateFrequency: 2,  // 铅笔每2次全局更新执行一次帧切换（快速抖动）
         name: '铅笔'
       },
       'marker': {
-        frameInterval: 250,  // 马克笔慢速抖动：250ms
+        updateFrequency: 5,  // 马克笔每5次全局更新执行一次帧切换（慢速抖动）
         name: '马克笔'
       },
       'spray': {
-        frameInterval: 180,  // 喷漆中等抖动：180ms
+        updateFrequency: 3,  // 喷漆每3次全局更新执行一次帧切换（中等抖动）
         name: '喷漆'
       }
     };
@@ -79,16 +84,17 @@ class WigglePixel {
   }
 
   /**
-   * 更新到下一帧（基于画笔类型的频率）
+   * 更新到下一帧（优化版：基于计数器而非时间检查）
+   * 由全局动画循环调用，避免每个像素都进行时间检查
    */
   update() {
-    const currentTime = Date.now();
-    const timeSinceLastUpdate = currentTime - this.lastUpdateTime;
+    // 增加帧更新计数器
+    this.frameUpdateCounter++;
 
-    // 检查是否到了该画笔类型的更新时间
-    if (timeSinceLastUpdate >= this.animationConfig.frameInterval) {
+    // 根据画笔类型的更新频率决定是否切换帧
+    if (this.frameUpdateCounter >= this.animationConfig.updateFrequency) {
       this.currentFrame = (this.currentFrame + 1) % this.frameData.length;
-      this.lastUpdateTime = currentTime;
+      this.frameUpdateCounter = 0; // 重置计数器
     }
   }
 }

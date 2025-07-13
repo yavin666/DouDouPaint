@@ -16,19 +16,54 @@ class pixelStore {
     }
     this.activePixels = new Map() // 所有活跃像素的引用（用于统一管理）
     this.totalPixelCount = 0 // 总像素计数器
-    
+
     // 配置
     this.config = {
       maxActivePixels: 1500, // 最大活跃像素数
       maxTotalPixels: 3000,  // 最大总像素数
       pixelLifetime: Infinity // 像素永远不会过期，保持抖动
     }
-    
+
     // 脏区域优化
     this.dirtyRegions = []
-    
+
+    // 动画循环引用（由AnimationStore设置）
+    this.animationLoop = null
+
+    // 动画启动防抖标志
+    this.animationStartPending = false
+
     // 使用 makeAutoObservable 让整个对象变为响应式
     makeAutoObservable(this)
+  }
+
+  /**
+   * 设置动画循环引用（由AnimationStore调用）
+   * @param {AnimationLoop} animationLoop - 动画循环实例
+   */
+  setAnimationLoop(animationLoop) {
+    this.animationLoop = animationLoop
+  }
+
+  /**
+   * 防抖的动画启动方法
+   * 避免在快速绘制时频繁调用动画启动检查
+   */
+  debouncedStartAnimation() {
+    if (!this.animationLoop || this.animationStartPending) {
+      return
+    }
+
+    // 设置防抖标志
+    this.animationStartPending = true
+
+    // 使用微任务延迟执行，避免在同一帧内多次调用
+    wx.nextTick(() => {
+      if (this.animationLoop && !this.animationLoop.isRunning) {
+        this.animationLoop.checkAndStartAnimation()
+      }
+      this.animationStartPending = false
+    })
   }
   
   /**
@@ -78,6 +113,9 @@ class pixelStore {
 
     // 添加脏区域
     this.addDirtyRegion(x - 10, y - 10, 20, 20)
+
+    // 主动检查并启动动画（使用防抖机制避免频繁调用）
+    this.debouncedStartAnimation()
 
     return pixelId
   }
@@ -167,31 +205,15 @@ class pixelStore {
 
   
   /**
-   * 更新活跃像素（优化的动画帧更新）
+   * 更新活跃像素（优化版：减少内存分配和函数调用）
    */
   updateActivePixels() {
     const pixelCount = this.activePixels.size
     if (pixelCount === 0) return
 
-    // 性能优化：根据像素数量动态调整批量大小
-    const batchSize = pixelCount > 500 ? 200 : 100
-
-    // 直接遍历Map，避免创建中间数组
-    let count = 0
-    let batch = []
-
+    // 直接遍历Map，不使用批处理，减少内存分配
     for (const pixel of this.activePixels.values()) {
-      batch.push(pixel)
-      count++
-
-      // 当批次满了或者是最后一批时，处理批次
-      if (batch.length >= batchSize || count === pixelCount) {
-        // 使用for循环代替forEach，性能更好
-        for (let i = 0; i < batch.length; i++) {
-          batch[i].update()
-        }
-        batch = [] // 清空批次
-      }
+      pixel.update()
     }
   }
   

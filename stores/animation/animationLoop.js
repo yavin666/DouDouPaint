@@ -1,8 +1,9 @@
-const { makeAutoObservable, reaction } = require('mobx-miniprogram')
+const { makeAutoObservable } = require('mobx-miniprogram')
+
 /**
- * 动画循环控制器 - 专门负责3帧抖动动画的循环控制
+ * 动画循环控制器 - 使用微信小程序原生Canvas.requestAnimationFrame
  * 职责单一：只管理动画状态，不负责渲染
- * 性能优化：调整循环间隔匹配帧更新频率，减少无效调用
+ * 使用原生requestAnimationFrame，彻底解决setTimeout内存泄漏问题
  */
 class AnimationLoop {
   constructor(pixelStore, frameRenderer) {
@@ -11,75 +12,86 @@ class AnimationLoop {
 
     // 动画状态
     this.isRunning = false
+    this.isDestroyed = false
     this.animationId = null
-    this.frameInterval = 60 // 动画循环检查间隔60ms，让各种画笔都能及时更新
-    this.lastFrameTime = 0 // 上次更新帧的时间戳
 
-    // 固定循环间隔，确保严格的3帧循环
-    this.checkInterval = 50 // 检查间隔50ms，确保及时响应帧更新
-
-    // 设置响应式监听
-    this.setupReactions()
+    // 帧间隔控制
+    this.frameInterval = 60 // 60ms间隔，约16fps
+    this.lastFrameTime = 0
 
     makeAutoObservable(this)
   }
-  
+
   /**
-   * 设置MobX响应式监听（简化版）
+   * 检查是否需要启动动画（外部调用）
+   * 当有新像素添加时调用此方法
    */
-  setupReactions() {
-    // 只监听活跃像素数量变化
-    this.pixelReaction = reaction(
-      () => this.pixelStore.activePixels.size,
-      (activePixelCount) => {
-        if (activePixelCount > 0 && !this.isRunning) {
-          this.start()
-        } else if (activePixelCount === 0 && this.isRunning) {
-          this.stop()
-        }
-      }
-    )
+  checkAndStartAnimation() {
+    if (this.isDestroyed) return
+
+    const currentCount = this.pixelStore.activePixels.size
+
+    if (currentCount > 0 && !this.isRunning) {
+      this.start()
+    } else if (currentCount === 0 && this.isRunning) {
+      this.stop()
+    }
   }
   
   /**
-   * 启动动画循环
+   * 启动动画循环 - 使用Canvas原生requestAnimationFrame
    */
   start() {
-    if (this.isRunning) return
-    
+    if (this.isRunning || this.isDestroyed) return
+
     this.isRunning = true
+    this.lastFrameTime = Date.now()
     this.animate()
+
     console.log('3帧抖动动画已启动')
   }
-  
+
   /**
-   * 停止动画循环
+   * 停止动画循环 - 使用Canvas原生cancelAnimationFrame
    */
   stop() {
+    if (!this.isRunning) return
+
     this.isRunning = false
-    if (this.animationId) {
-      // 使用 Canvas.cancelAnimationFrame 或 clearTimeout 作为兼容方案
-      if (this.frameRenderer.canvas && this.frameRenderer.canvas.cancelAnimationFrame) {
-        this.frameRenderer.canvas.cancelAnimationFrame(this.animationId)
-      } else {
-        clearTimeout(this.animationId)
-      }
+    this.clearAnimationFrame()
+
+    console.log('3帧抖动动画已停止')
+  }
+
+  /**
+   * 清理动画帧
+   */
+  clearAnimationFrame() {
+    if (this.animationId && this.frameRenderer.canvas) {
+      this.frameRenderer.canvas.cancelAnimationFrame(this.animationId)
       this.animationId = null
     }
-    this.lastFrameTime = 0 // 重置时间戳
-    console.log('3帧抖动动画已停止')
   }
   
   /**
-   * 简化的动画循环
-   * 严格按照300ms间隔进行3帧循环，确保抖动效果稳定
+   * 动画循环主方法 - 使用Canvas原生requestAnimationFrame
    */
   animate() {
-    if (!this.isRunning) return
+    if (!this.isRunning || this.isDestroyed) {
+      this.clearAnimationFrame()
+      return
+    }
 
     try {
       const currentTime = Date.now()
       const timeSinceLastFrame = currentTime - this.lastFrameTime
+      const activePixelCount = this.pixelStore.activePixels.size
+
+      // 检查像素数量变化，决定是否需要停止动画
+      if (activePixelCount === 0) {
+        this.stop()
+        return
+      }
 
       // 检查是否到了更新帧的时间
       if (timeSinceLastFrame >= this.frameInterval) {
@@ -93,32 +105,65 @@ class AnimationLoop {
         this.lastFrameTime = currentTime
       }
 
-      // 使用固定间隔继续下一帧
-      if (this.frameRenderer.canvas && this.frameRenderer.canvas.requestAnimationFrame) {
-        this.animationId = this.frameRenderer.canvas.requestAnimationFrame(() => this.animate())
-      } else {
-        // 兼容方案：使用固定检查间隔
-        this.animationId = setTimeout(() => this.animate(), this.checkInterval)
-      }
+      // 使用Canvas原生requestAnimationFrame调度下一帧
+      this.scheduleNextFrame()
+
     } catch (error) {
       console.error('动画循环错误:', error)
       this.stop()
     }
   }
-  
+
   /**
-   * 销毁动画循环
+   * 调度下一帧 - 使用Canvas原生requestAnimationFrame
+   */
+  scheduleNextFrame() {
+    if (!this.isRunning || this.isDestroyed || !this.frameRenderer.canvas) {
+      return
+    }
+
+    this.animationId = this.frameRenderer.canvas.requestAnimationFrame(() => {
+      this.animate()
+    })
+  }
+
+  /**
+   * 销毁动画循环 - 彻底清理所有资源，防止内存泄漏
    */
   destroy() {
+    // 设置销毁标志，防止后续操作
+    this.isDestroyed = true
+
+    // 停止动画并清理
     this.stop()
-    
-    // 清理MobX监听
-    if (this.pixelReaction) {
-      this.pixelReaction()
-      this.pixelReaction = null
-    }
-    
+
+    // 清理所有引用，帮助垃圾回收
+    this.pixelStore = null
+    this.frameRenderer = null
+    this.lastFrameTime = 0
+
     console.log('动画循环已销毁')
+  }
+
+  /**
+   * 暂停动画（页面隐藏时使用）
+   */
+  pause() {
+    if (this.isRunning) {
+      this.clearAnimationFrame()
+      console.log('动画已暂停')
+    }
+  }
+
+  /**
+   * 恢复动画（页面显示时使用）
+   */
+  resume() {
+    if (this.isRunning && !this.isDestroyed && this.pixelStore.activePixels.size > 0) {
+      this.lastFrameTime = Date.now()
+      this.animate()
+      console.log('动画已恢复')
+    }
   }
 }
 

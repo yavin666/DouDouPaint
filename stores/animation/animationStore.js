@@ -10,13 +10,16 @@ const { FrameCapture } = require('./frameCapture')
 class AnimationStore {
   constructor(pixelStore) {
     this.pixelStore = pixelStore
-    
+
     // 创建各个专门的组件
     this.frameRenderer = new FrameRenderer()
     this.animationLoop = new AnimationLoop(pixelStore, this.frameRenderer)
     this.frameCapture = new FrameCapture(pixelStore, this.frameRenderer)
     this.frameCapture.animationLoop = this.animationLoop
-    
+
+    // 设置pixelStore的动画循环引用，用于主动启动动画
+    this.pixelStore.setAnimationLoop(this.animationLoop)
+
     makeAutoObservable(this)
   }
   
@@ -89,10 +92,29 @@ class AnimationStore {
   }
   
   /**
-   * 销毁Store
+   * 销毁Store - 彻底清理所有组件，防止内存泄漏
    */
   destroy() {
-    this.animationLoop.destroy()
+    // 按顺序销毁各个组件
+    if (this.animationLoop) {
+      this.animationLoop.destroy()
+      this.animationLoop = null
+    }
+
+    if (this.frameCapture) {
+      this.frameCapture.animationLoop = null
+      this.frameCapture = null
+    }
+
+    if (this.frameRenderer) {
+      this.frameRenderer.canvas = null
+      this.frameRenderer.ctx = null
+      this.frameRenderer = null
+    }
+
+    // 清理像素存储引用
+    this.pixelStore = null
+
     console.log('AnimationStore已销毁')
   }
 }

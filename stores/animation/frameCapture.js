@@ -43,8 +43,8 @@ class FrameCapture {
         // 渲染当前帧
         this.frameRenderer.renderFrame(this.pixelStore)
 
-        // 等待渲染完成
-        await new Promise(resolve => setTimeout(resolve, 50))
+        // 等待渲染完成 - 使用微信小程序原生nextTick
+        await new Promise(resolve => wx.nextTick(resolve))
 
         // 转换为临时图片文件
         const tempFilePath = await this.canvasToTempFile()
@@ -84,28 +84,46 @@ class FrameCapture {
     }
 
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Canvas转换超时，请重试'))
-      }, 10000) // 10秒超时
-
-      wx.canvasToTempFilePath({
-        canvas: this.canvas,
-        fileType: format,
-        quality: quality,
-        success: (res) => {
-          clearTimeout(timeout)
-          if (res.tempFilePath) {
-            resolve(res.tempFilePath)
-          } else {
-            reject(new Error('Canvas转换失败：未获取到文件路径'))
+      // 使用微信小程序原生的Promise超时处理
+      const timeoutPromise = new Promise((_, timeoutReject) => {
+        wx.nextTick(() => {
+          // 延迟10秒后超时
+          let timeoutCount = 0
+          const checkTimeout = () => {
+            timeoutCount++
+            if (timeoutCount >= 100) { // 100 * 100ms = 10秒
+              timeoutReject(new Error('Canvas转换超时，请重试'))
+            } else {
+              wx.nextTick(checkTimeout)
+            }
           }
-        },
-        fail: (error) => {
-          clearTimeout(timeout)
-          console.error('Canvas转换失败:', error)
-          reject(new Error(`Canvas转换失败: ${error.errMsg || '未知错误'}`))
-        }
+          checkTimeout()
+        })
       })
+
+      const canvasPromise = new Promise((canvasResolve, canvasReject) => {
+        wx.canvasToTempFilePath({
+          canvas: this.canvas,
+          fileType: format,
+          quality: quality,
+          success: (res) => {
+            if (res.tempFilePath) {
+              canvasResolve(res.tempFilePath)
+            } else {
+              canvasReject(new Error('Canvas转换失败：未获取到文件路径'))
+            }
+          },
+          fail: (error) => {
+            console.error('Canvas转换失败:', error)
+            canvasReject(new Error(`Canvas转换失败: ${error.errMsg || '未知错误'}`))
+          }
+        })
+      })
+
+      // 竞争Promise，哪个先完成就用哪个结果
+      Promise.race([canvasPromise, timeoutPromise])
+        .then(resolve)
+        .catch(reject)
     })
   }
 
@@ -150,24 +168,36 @@ class FrameCapture {
           const randomStr = Math.random().toString(36).substring(2, 8)
           const cloudPath = `gif-frames/frame_${timestamp}_${i}_${randomStr}.png`
 
-          // 上传到云存储
+          // 上传到云存储 - 使用微信小程序原生超时处理
           const uploadResult = await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error('上传超时'))
-            }, 30000) // 30秒超时
-
-            wx.cloud.uploadFile({
-              cloudPath: cloudPath,
-              filePath: imagePath,
-              success: (res) => {
-                clearTimeout(timeout)
-                resolve(res)
-              },
-              fail: (error) => {
-                clearTimeout(timeout)
-                reject(error)
+            // 创建超时Promise
+            const timeoutPromise = new Promise((_, timeoutReject) => {
+              let timeoutCount = 0
+              const checkTimeout = () => {
+                timeoutCount++
+                if (timeoutCount >= 300) { // 300 * 100ms = 30秒
+                  timeoutReject(new Error('上传超时'))
+                } else {
+                  wx.nextTick(checkTimeout)
+                }
               }
+              wx.nextTick(checkTimeout)
             })
+
+            // 创建上传Promise
+            const uploadPromise = new Promise((uploadResolve, uploadReject) => {
+              wx.cloud.uploadFile({
+                cloudPath: cloudPath,
+                filePath: imagePath,
+                success: uploadResolve,
+                fail: uploadReject
+              })
+            })
+
+            // 竞争Promise
+            Promise.race([uploadPromise, timeoutPromise])
+              .then(resolve)
+              .catch(reject)
           })
 
           if (!uploadResult.fileID) {
