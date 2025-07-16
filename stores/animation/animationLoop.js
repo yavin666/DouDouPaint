@@ -52,33 +52,43 @@ class AnimationLoop {
   }
 
   /**
-   * 停止动画循环 - 使用Canvas原生cancelAnimationFrame
+   * 停止动画循环 - 使用Canvas原生cancelAnimationFrame，修复内存泄漏
    */
   stop() {
     if (!this.isRunning) return
 
     this.isRunning = false
+
+    // 确保清理动画帧，防止内存泄漏
     this.clearAnimationFrame()
 
-    console.log('3帧抖动动画已停止')
+    console.log('3帧抖动动画已停止，动画帧已清理')
   }
 
   /**
-   * 清理动画帧
+   * 清理动画帧 - 修复内存泄漏问题
    */
   clearAnimationFrame() {
-    if (this.animationId && this.frameRenderer.canvas) {
-      this.frameRenderer.canvas.cancelAnimationFrame(this.animationId)
+    if (this.animationId) {
+      // 优先使用 canvas 的 cancelAnimationFrame，如果 canvas 不存在则使用全局方法
+      if (this.frameRenderer.canvas && this.frameRenderer.canvas.cancelAnimationFrame) {
+        this.frameRenderer.canvas.cancelAnimationFrame(this.animationId)
+      } else if (typeof cancelAnimationFrame !== 'undefined') {
+        // 备用方案：使用全局 cancelAnimationFrame（如果存在）
+        cancelAnimationFrame(this.animationId)
+      }
       this.animationId = null
+      // 移除日志输出，避免无限打印
     }
   }
   
   /**
-   * 动画循环主方法 - 使用Canvas原生requestAnimationFrame
+   * 动画循环主方法 - 使用Canvas原生requestAnimationFrame，修复内存泄漏
    */
   animate() {
-    if (!this.isRunning || this.isDestroyed) {
-      this.clearAnimationFrame()
+    // 严格的状态检查，防止内存泄漏
+    if (!this.isRunning || this.isDestroyed || !this.frameRenderer.canvas) {
+      // 状态异常时停止动画，不需要清理 animationId（已经在 scheduleNextFrame 中处理）
       return
     }
 
@@ -110,19 +120,24 @@ class AnimationLoop {
 
     } catch (error) {
       console.error('动画循环错误:', error)
+      // 发生错误时停止动画
       this.stop()
     }
   }
 
   /**
-   * 调度下一帧 - 使用Canvas原生requestAnimationFrame
+   * 调度下一帧 - 使用Canvas原生requestAnimationFrame，修复内存泄漏
    */
   scheduleNextFrame() {
     if (!this.isRunning || this.isDestroyed || !this.frameRenderer.canvas) {
       return
     }
 
+    // 正常情况下不需要清理，因为上一帧已经执行完毕
+    // 只在创建新的动画帧时设置 animationId
     this.animationId = this.frameRenderer.canvas.requestAnimationFrame(() => {
+      // 动画帧执行时，先清空 animationId，表示当前帧已开始执行
+      this.animationId = null
       this.animate()
     })
   }
@@ -134,19 +149,25 @@ class AnimationLoop {
     // 设置销毁标志，防止后续操作
     this.isDestroyed = true
 
+    // 强制清理动画帧
+    this.clearAnimationFrame()
+
     // 停止动画并清理
     this.stop()
+
+    // 再次确保动画帧被清理（双重保险）
+    this.clearAnimationFrame()
 
     // 清理所有引用，帮助垃圾回收
     this.pixelStore = null
     this.frameRenderer = null
     this.lastFrameTime = 0
 
-    console.log('动画循环已销毁')
+    console.log('动画循环已销毁，所有资源已清理')
   }
 
   /**
-   * 暂停动画（页面隐藏时使用）
+   * 暂停动画（页面隐藏时使用）- 保持运行状态，只停止动画帧
    */
   pause() {
     if (this.isRunning) {
@@ -160,8 +181,9 @@ class AnimationLoop {
    */
   resume() {
     if (this.isRunning && !this.isDestroyed && this.pixelStore.activePixels.size > 0) {
+      // 只有在动画应该运行且有活跃像素时才恢复
       this.lastFrameTime = Date.now()
-      this.animate()
+      this.scheduleNextFrame()
       console.log('动画已恢复')
     }
   }

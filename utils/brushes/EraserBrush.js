@@ -1,5 +1,5 @@
 const { BaseBrush } = require('./BaseBrush')
-const { BRUSH_TYPES, BRUSH_LAYERS } = require('./brushConstants')
+const { BRUSH_TYPES, BRUSH_LAYERS, DEFAULT_BRUSH_CONFIG } = require('./brushConstants')
 
 /**
  * 橡皮擦画笔类
@@ -11,14 +11,14 @@ class EraserBrush extends BaseBrush {
    * @param {Object} config - 画笔配置
    */
   constructor(config = {}) {
+    // 使用DEFAULT_BRUSH_CONFIG中的橡皮擦配置
+    const eraserConfig = DEFAULT_BRUSH_CONFIG[BRUSH_TYPES.ERASER]
+
     super({
+      ...eraserConfig,
       ...config,
       brushType: BRUSH_TYPES.ERASER,
-      layer: BRUSH_LAYERS.ERASER,
-      opacity: 1.0,
-      color: 'transparent',
-      name: '橡皮擦',
-      isEraser: true
+      layer: BRUSH_LAYERS.ERASER
     })
   }
 
@@ -153,6 +153,16 @@ class EraserBrush extends BaseBrush {
     const dy = pointY - centerY
     const distance = Math.sqrt(dx * dx + dy * dy)
     return distance <= radius
+  }
+
+  /**
+   * 生成橡皮擦形状（实现BaseBrush的抽象方法，但橡皮擦不需要实际形状）
+   * @param {number} size - 有效尺寸
+   * @returns {Array} 空数组（橡皮擦不需要形状数据）
+   */
+  generateShape(size) {
+    // 橡皮擦不需要形状数据，返回空数组
+    return []
   }
 }
 

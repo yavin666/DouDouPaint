@@ -25,21 +25,27 @@ const DEFAULT_BRUSH_CONFIG = {
     opacity: 1.0,
     layer: BRUSH_LAYERS.PENCIL,
     audio: '/static/sounds/clip.mp3',
-    name: '铅笔'
+    name: '铅笔',
+    sizeMultiplier: 1.0,  // 铅笔使用标准尺寸
+    shakeIntensity: 0.8   // 铅笔标准抖动强度
   },
   [BRUSH_TYPES.MARKER]: {
     color: '#FFFF00',  // 使用纯黄色作为默认颜色，与预设颜色保持一致
     opacity: 1.0,      // 改为100%不透明，减少颜色变化
     layer: BRUSH_LAYERS.MARKER,
     audio: '/static/sounds/clip.mp3',
-    name: '马克笔'
+    name: '马克笔',
+    sizeMultiplier: 2.0,  // 马克笔尺寸倍数，让色块更大
+    shakeIntensity: 1.0   // 马克笔抖动强度稍大
   },
   [BRUSH_TYPES.SPRAY]: {
     color: '#666666',
     opacity: 1.0,
     layer: BRUSH_LAYERS.SPRAY,
     audio: '/static/sounds/clip.mp3',
-    name: '喷漆'
+    name: '喷漆',
+    sizeMultiplier: 1.5,  // 喷漆中等尺寸倍数
+    shakeIntensity: 0.6   // 喷漆抖动强度较小
   },
   [BRUSH_TYPES.ERASER]: {
     color: 'transparent',
@@ -47,7 +53,9 @@ const DEFAULT_BRUSH_CONFIG = {
     layer: BRUSH_LAYERS.ERASER,
     audio: '/static/sounds/clip.mp3',
     name: '橡皮擦',
-    isEraser: true
+    isEraser: true,
+    sizeMultiplier: 2.5,  // 橡皮擦尺寸倍数
+    shakeIntensity: 0.0   // 橡皮擦不需要抖动
   }
 }
 
@@ -80,10 +88,18 @@ const RENDER_ORDER = [
   BRUSH_LAYERS.PENCIL
 ]
 
+// 马克笔专用尺寸映射（替代原来的getMarkerSpecificSize方法）
+const MARKER_SIZE_MAPPING = {
+  small: 6,   // 小号马克笔：6像素
+  medium: 8,  // 中号马克笔：8像素
+  large: 16   // 大号马克笔：16像素
+}
+
 module.exports = {
   BRUSH_LAYERS,
   BRUSH_TYPES,
   DEFAULT_BRUSH_CONFIG,
   BRUSH_SIZES,
-  RENDER_ORDER
+  RENDER_ORDER,
+  MARKER_SIZE_MAPPING
 }

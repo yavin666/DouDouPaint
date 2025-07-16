@@ -15,6 +15,8 @@ class BaseBrush {
    * @param {string} config.audio - 音效文件路径
    * @param {string} config.name - 画笔名称
    * @param {boolean} config.isEraser - 是否为橡皮擦
+   * @param {number} config.sizeMultiplier - 尺寸倍数
+   * @param {number} config.shakeIntensity - 抖动强度
    */
   constructor(config) {
     this.color = config.color || '#000000'
@@ -24,19 +26,47 @@ class BaseBrush {
     this.name = config.name || '画笔'
     this.isEraser = config.isEraser || false
     this.brushType = config.brushType || BRUSH_TYPES.PENCIL
+
+    // 新增：统一的画笔参数配置
+    this.sizeMultiplier = config.sizeMultiplier || 1.0  // 尺寸倍数
+    this.shakeIntensity = config.shakeIntensity || 0.8  // 抖动强度
   }
 
   /**
-   * 创建像素（抽象方法，子类必须实现）
+   * 创建像素（统一实现，子类只需实现generateShape方法）
    * @param {number} x - x坐标
    * @param {number} y - y坐标
-   * @param {Array} frameData - 帧数据
+   * @param {Array} frameData - 帧数据（将被忽略，使用统一的3帧动画）
    * @param {Object} brushSize - 画笔大小配置
    * @param {Object} pixelStore - 像素存储对象
    * @returns {string|null} 像素ID或null
    */
   createPixel(x, y, frameData, brushSize, pixelStore) {
-    throw new Error('createPixel方法必须在子类中实现')
+    // 计算有效尺寸
+    const effectiveSize = this.calculateEffectiveSize(brushSize)
+
+    // 生成画笔特定的形状（子类实现）
+    const shape = this.generateShape(effectiveSize)
+
+    // 生成统一的3帧抖动动画
+    const frames = this.generate3FrameAnimation(shape)
+
+    // 创建最终的画笔配置
+    const finalBrushConfig = {
+      ...brushSize,
+      size: effectiveSize
+    }
+
+    // 添加到像素存储
+    return pixelStore.addPixel(
+      x,
+      y,
+      this.getEffectiveColor(brushSize),
+      frames,
+      finalBrushConfig,
+      this.getEffectiveOpacity(brushSize),
+      this.brushType
+    )
   }
 
   /**
@@ -140,6 +170,42 @@ class BaseBrush {
    */
   getBrushType() {
     return this.brushType
+  }
+
+  /**
+   * 计算有效尺寸（应用尺寸倍数）
+   * @param {Object} brushSize - 画笔大小配置
+   * @returns {number} 有效尺寸
+   */
+  calculateEffectiveSize(brushSize) {
+    const baseSize = brushSize.size || 2
+    return Math.max(1, Math.round(baseSize * this.sizeMultiplier))
+  }
+
+  /**
+   * 生成统一的3帧抖动动画
+   * @param {Array} shape - 基础形状像素点数组 [[x, y], ...]
+   * @returns {Array} 3帧动画数据
+   */
+  generate3FrameAnimation(shape) {
+    if (!shape || shape.length === 0) {
+      return [[], [], []]
+    }
+
+    return [
+      shape,  // 第0帧 - 基础位置
+      shape.map(([x, y]) => [x - this.shakeIntensity, y - 0.2]),  // 第1帧 - 左下抖动
+      shape.map(([x, y]) => [x + this.shakeIntensity, y + 0.2])   // 第2帧 - 右上抖动
+    ]
+  }
+
+  /**
+   * 生成画笔形状（抽象方法，子类必须实现）
+   * @param {number} size - 有效尺寸
+   * @returns {Array} 形状像素点数组 [[x, y], ...]
+   */
+  generateShape(size) {
+    throw new Error('generateShape方法必须在子类中实现')
   }
 }
 
