@@ -67,15 +67,15 @@ class WigglePixel {
   getAnimationConfig(penType) {
     const configs = {
       'pencil': {
-        updateFrequency: 2,  // 铅笔每2次全局更新执行一次帧切换（快速抖动）
+        updateFrequency: 1,  // 铅笔每1次全局更新执行一次帧切换（极快抖动）
         name: '铅笔'
       },
       'marker': {
-        updateFrequency: 5,  // 马克笔每5次全局更新执行一次帧切换（慢速抖动）
+        updateFrequency: 2,  // 马克笔每2次全局更新执行一次帧切换（快速抖动）
         name: '马克笔'
       },
       'spray': {
-        updateFrequency: 3,  // 喷漆每3次全局更新执行一次帧切换（中等抖动）
+        updateFrequency: 1,  // 喷漆每1次全局更新执行一次帧切换（极快抖动）
         name: '喷漆'
       }
     };

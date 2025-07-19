@@ -17,10 +17,10 @@ class pixelStore {
     this.activePixels = new Map() // 所有活跃像素的引用（用于统一管理）
     this.totalPixelCount = 0 // 总像素计数器
 
-    // 配置
+    // 配置 - 提高像素数量上限，增强绘画效果
     this.config = {
-      maxActivePixels: 1500, // 最大活跃像素数
-      maxTotalPixels: 3000,  // 最大总像素数
+      maxActivePixels: 2000,  // 增加活跃像素上限
+      maxTotalPixels: 3000,   // 增加总像素上限
       pixelLifetime: Infinity // 像素永远不会过期，保持抖动
     }
 

@@ -28,8 +28,7 @@ Page({
         isCurrentPenEraser: () => rootStore.penStore.isCurrentPenEraser(),
         // 其他状态
         isTransparentBackground: () => rootStore.canvasConfig.isTransparent,
-        canvasInitialized: () => rootStore.canvasStore.canvasState.isInitialized,
-        canvasPerformance: () => rootStore.canvasStore.getPerformanceReport()
+        canvasInitialized: () => rootStore.canvasStore.canvasState.isInitialized
       },
       actions: {
         addPixel: 'addPixel',
@@ -52,9 +51,9 @@ Page({
    */
   initTouchManager() {
     this.touchManager = new TouchInteractionManager({
-      audioInterval: 10,
-      audioTimeInterval: 300,
-      pixelSpacing: 4,
+      audioInterval: 15, // 减少音频播放频率
+      audioTimeInterval: 500, // 增加音频间隔
+      pixelSpacing: 15, // 激进优化：大幅增加像素间距
       onDrawStart: (x, y) => {
         console.log(`开始绘制: (${x.toFixed(1)}, ${y.toFixed(1)})`);
       },

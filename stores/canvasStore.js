@@ -1,5 +1,6 @@
 const { makeAutoObservable } = require('mobx-miniprogram')
 const { getRandomShape } = require('../config/pixelShapes')
+const { BaseBrush } = require('../utils/brushes/BaseBrush')
 
 /**
  * Canvas状态管理Store
@@ -30,12 +31,7 @@ class CanvasStore {
       frameRequestId: null    // 动画帧请求ID
     }
     
-    // 性能监控
-    this.performance = {
-      renderCount: 0,         // 渲染次数
-      pixelPlaceCount: 0,     // 像素放置次数
-      lastPerformanceCheck: Date.now()
-    }
+
     
     // 使用 makeAutoObservable 让整个对象变为响应式
     makeAutoObservable(this)
@@ -140,8 +136,7 @@ class CanvasStore {
       return null
     }
 
-    // 性能监控
-    this.performance.pixelPlaceCount++
+
 
     // 使用 PenStore 统一处理像素放置（PenStore 内部管理 BrushManager）
     const result = this.rootStore.penStore.placePixel(
@@ -205,10 +200,13 @@ class CanvasStore {
     // 清空所有像素数据
     this.rootStore.clearAllPixels()
 
+    // 清理动画帧管理器缓存
+    BaseBrush.clearAnimationCache()
+
     // 重新渲染画布以显示清空效果
     this.scheduleRender()
 
-    console.log('CanvasStore: 画布已清空')
+    console.log('CanvasStore: 画布已清空，动画缓存已清理')
   }
 
   /**
@@ -239,7 +237,6 @@ class CanvasStore {
 
     this.renderState.isRendering = true
     this.renderState.lastRenderTime = Date.now()
-    this.performance.renderCount++
 
     try {
       this.canvasState.animationStore.frameRenderer.renderFrame(this.rootStore.pixelStore)
@@ -260,28 +257,7 @@ class CanvasStore {
     }
   }
 
-  /**
-   * 获取性能报告
-   */
-  getPerformanceReport() {
-    const now = Date.now()
-    const timeDiff = now - this.performance.lastPerformanceCheck
-    
-    return {
-      ...this.performance,
-      renderRate: this.performance.renderCount / (timeDiff / 1000),
-      pixelRate: this.performance.pixelPlaceCount / (timeDiff / 1000)
-    }
-  }
 
-  /**
-   * 重置性能计数器
-   */
-  resetPerformanceCounters() {
-    this.performance.renderCount = 0
-    this.performance.pixelPlaceCount = 0
-    this.performance.lastPerformanceCheck = Date.now()
-  }
 
   /**
    * 销毁资源 - 彻底清理所有状态，防止内存泄漏
@@ -298,7 +274,10 @@ class CanvasStore {
       this.canvasState.animationStore = null
     }
 
-    // 3. 清理画布状态
+    // 3. 销毁动画帧管理器
+    BaseBrush.destroyAnimationManager()
+
+    // 4. 清理画布状态
     this.canvasState = {
       canvas: null,
       ctx: null,
@@ -310,25 +289,17 @@ class CanvasStore {
       animationStore: null
     }
 
-    // 4. 清理渲染状态
+    // 5. 清理渲染状态
     this.renderState = {
       isRendering: false,
       frameRequestId: null,
-      lastRenderTime: 0,
-      renderCount: 0
-    }
-
-    // 5. 清理性能统计
-    this.performance = {
-      renderCount: 0,
-      pixelPlaceCount: 0,
-      lastPerformanceCheck: Date.now()
+      lastRenderTime: 0
     }
 
     // 6. 清理根Store引用
     this.rootStore = null
 
-    console.log('CanvasStore: 资源已销毁')
+    console.log('CanvasStore: 资源已销毁，动画管理器已清理')
   }
 }
 

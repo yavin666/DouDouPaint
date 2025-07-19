@@ -15,9 +15,17 @@ class AnimationLoop {
     this.isDestroyed = false
     this.animationId = null
 
-    // 帧间隔控制
-    this.frameInterval = 60 // 60ms间隔，约16fps
+    // 帧间隔控制 - 激进优化：大幅降低帧率
+    this.frameInterval = 60 // 200ms间隔，约5fps（进一步降低重绘频率）
     this.lastFrameTime = 0
+
+    // 性能优化：跳帧机制
+    this.frameSkipCounter = 0
+    this.frameSkipThreshold = 2 // 每3帧只渲染1帧
+
+    // 内存管理：定期清理
+    this.memoryCleanupCounter = 0
+    this.memoryCleanupThreshold = 50 // 每50帧进行一次内存清理
 
     makeAutoObservable(this)
   }
@@ -66,19 +74,23 @@ class AnimationLoop {
   }
 
   /**
-   * 清理动画帧 - 修复内存泄漏问题
+   * 清理动画帧 - 修复内存泄漏问题（增强版）
    */
   clearAnimationFrame() {
     if (this.animationId) {
-      // 优先使用 canvas 的 cancelAnimationFrame，如果 canvas 不存在则使用全局方法
-      if (this.frameRenderer.canvas && this.frameRenderer.canvas.cancelAnimationFrame) {
-        this.frameRenderer.canvas.cancelAnimationFrame(this.animationId)
-      } else if (typeof cancelAnimationFrame !== 'undefined') {
-        // 备用方案：使用全局 cancelAnimationFrame（如果存在）
-        cancelAnimationFrame(this.animationId)
+      try {
+        // 优先使用 canvas 的 cancelAnimationFrame，如果 canvas 不存在则使用全局方法
+        if (this.frameRenderer?.canvas?.cancelAnimationFrame) {
+          this.frameRenderer.canvas.cancelAnimationFrame(this.animationId)
+        } else if (typeof cancelAnimationFrame !== 'undefined') {
+          // 备用方案：使用全局 cancelAnimationFrame（如果存在）
+          cancelAnimationFrame(this.animationId)
+        }
+      } catch (error) {
+        console.warn('清理动画帧失败:', error)
+      } finally {
+        this.animationId = null
       }
-      this.animationId = null
-      // 移除日志输出，避免无限打印
     }
   }
   
@@ -105,11 +117,36 @@ class AnimationLoop {
 
       // 检查是否到了更新帧的时间
       if (timeSinceLastFrame >= this.frameInterval) {
-        // 更新所有像素到下一帧
+        // 总是更新像素状态（保持动画连续性）
         this.pixelStore.updateActivePixels()
 
-        // 渲染当前帧
-        this.frameRenderer.renderFrame(this.pixelStore)
+        // 跳帧优化：不是每帧都渲染
+        this.frameSkipCounter++
+        const shouldRender = this.frameSkipCounter >= this.frameSkipThreshold
+
+        if (shouldRender) {
+          // 渲染当前帧（添加性能监控）
+          const renderStart = Date.now()
+          this.frameRenderer.renderFrame(this.pixelStore)
+          const renderTime = Date.now() - renderStart
+
+          // 动态调整跳帧阈值
+          if (renderTime > 30) { // 如果渲染超过30ms
+            this.frameSkipThreshold = Math.min(4, this.frameSkipThreshold + 1) // 增加跳帧
+          } else if (renderTime < 15 && this.frameSkipThreshold > 1) {
+            this.frameSkipThreshold = Math.max(1, this.frameSkipThreshold - 1) // 减少跳帧
+          }
+
+          // 重置跳帧计数器
+          this.frameSkipCounter = 0
+        }
+
+        // 内存管理：定期清理
+        this.memoryCleanupCounter++
+        if (this.memoryCleanupCounter >= this.memoryCleanupThreshold) {
+          this.performMemoryCleanup()
+          this.memoryCleanupCounter = 0
+        }
 
         // 更新时间戳
         this.lastFrameTime = currentTime
@@ -185,6 +222,25 @@ class AnimationLoop {
       this.lastFrameTime = Date.now()
       this.scheduleNextFrame()
       console.log('动画已恢复')
+    }
+  }
+
+  /**
+   * 执行内存清理 - 防止内存泄漏
+   */
+  performMemoryCleanup() {
+    try {
+      // 清理过期的像素（如果有的话）
+      if (this.pixelStore && typeof this.pixelStore.cleanupExpiredPixels === 'function') {
+        this.pixelStore.cleanupExpiredPixels()
+      }
+
+      // 强制垃圾回收（如果支持）
+      if (typeof wx !== 'undefined' && wx.triggerGC) {
+        wx.triggerGC()
+      }
+    } catch (error) {
+      console.warn('内存清理失败:', error)
     }
   }
 }

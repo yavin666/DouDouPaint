@@ -2,7 +2,11 @@
  * 触摸交互管理器
  * 统一处理画布的触摸事件，包括触摸开始、移动、结束等
  * 将触摸事件处理逻辑从页面组件中抽离，提高代码的可维护性和复用性
+ * 集成绘制优化器，解决双重线条问题和性能优化
  */
+
+const { DrawingOptimizer } = require('./drawingOptimizer')
+const { performanceMonitor } = require('./performanceMonitor')
 
 class TouchInteractionManager {
   constructor(options = {}) {
@@ -19,17 +23,23 @@ class TouchInteractionManager {
     this.lastAudioTime = 0;
     this.audioTimeInterval = options.audioTimeInterval || 300;
 
-    // 绘制配置（性能优化）
-    this.pixelSpacing = options.pixelSpacing || 5; // 优化间距，提高线条连续性
-    this.maxPixelsPerMove = options.maxPixelsPerMove || 6; // 适当增加单次移动最大像素数
-    this.densityControl = options.densityControl || true; // 启用密度控制
+    // 绘制配置（高密度设置）
+    this.pixelSpacing = options.pixelSpacing || 1; // 最小间距，实现极致连续性
+    this.maxPixelsPerMove = options.maxPixelsPerMove || 16; // 大幅增加单次移动像素数
+    this.densityControl = options.densityControl || false; // 关闭密度控制，实现最大密度
 
-    // 性能监控
-    this.performanceStats = {
-      pixelsCreated: 0,
-      movesProcessed: 0,
-      lastResetTime: Date.now()
-    };
+    // 初始化绘制优化器 - 高密度绘制配置
+    this.drawingOptimizer = new DrawingOptimizer({
+      minDrawDistance: options.minDrawDistance || 0.5, // 降低最小绘制距离，提高密度
+      debounceDelay: options.debounceDelay || 8, // 减少防抖延迟，提高响应速度
+      throttleInterval: options.throttleInterval || 8, // 减少节流间隔，提高绘制频率
+      maxPendingDraws: options.maxPendingDraws || 100 // 增加待处理绘制数量上限
+    })
+    
+    // 启动性能监控（开发模式下）
+    // if (process.env.NODE_ENV === 'development') { // 小程序环境不支持 process.env
+    //   performanceMonitor.startMonitoring()
+    // }
 
     // 回调函数
     this.callbacks = {
@@ -41,7 +51,7 @@ class TouchInteractionManager {
       onPlacePixel: options.onPlacePixel || (() => {})
     };
 
-    console.log('TouchInteractionManager 初始化完成（性能优化版）');
+    console.log('TouchInteractionManager 初始化完成（集成绘制优化器）');
   }
 
   /**
@@ -124,58 +134,64 @@ class TouchInteractionManager {
       this.lastAudioTime = Date.now();
     }
     
+    // 启动绘制会话
+    this.drawingOptimizer.startDrawingSession()
+    
     // 触发振动
     this.callbacks.onVibrate();
 
     // 触摸开始时强制播放音效
     this.forcePlayAudio();
 
-    // 在起始位置放置像素
-    this.callbacks.onPlacePixel(x, y, false); // 不检查音频，因为上面已经播放了
+    // 使用优化器放置起始像素 - 解决双重线条问题
+    const executed = this.optimizedPlacePixel(x, y, false)
+    
+    // 记录性能数据
+    performanceMonitor.recordDrawCall(executed, false, false, false)
     
     // 触发开始绘制回调
     this.callbacks.onDrawStart(x, y);
-    
   }
   
   /**
-   * 处理触摸移动事件 - 优化版本
-   * @param {Event} e - 触摸事件对象
+   * 处理触摸移动事件
+   * @param {Object} e - 触摸事件对象
    */
   handleTouchMove(e) {
-    if (!this.isDrawing) return;
+    this.safePreventEvent(e);
 
-    const touchInfo = this.preprocessTouchEvent(e);
-    if (!touchInfo) return;
+    if (!this.isDrawing) {
+      return;
+    }
 
-    const { x, y } = touchInfo;
+    const touch = this.preprocessTouchEvent(e);
+    if (!touch) {
+      return;
+    }
 
-    // 使用优化的路径插值算法
-    this.interpolateAndDraw(this.lastX, this.lastY, x, y);
-
-    // 更新位置
-    this.lastX = x;
-    this.lastY = y;
-
-    // 触发移动绘制回调
-    this.callbacks.onDrawMove(x, y);
+    // 使用优化的路径插值绘制
+    this.optimizedInterpolateAndDraw(this.lastX, this.lastY, touch.x, touch.y);
+    
+    // 更新最后位置
+    this.lastX = touch.x;
+    this.lastY = touch.y;
   }
 
   /**
-   * 优化的路径插值算法（性能增强版）
-   * 使用密度控制和自适应算法减少像素创建开销
+   * 优化的路径插值算法（集成绘制优化器）
+   * 使用绘制优化器解决双重线条问题和性能优化
    * @param {number} x0 - 起始点X坐标
    * @param {number} y0 - 起始点Y坐标
    * @param {number} x1 - 结束点X坐标
    * @param {number} y1 - 结束点Y坐标
    */
-  interpolateAndDraw(x0, y0, x1, y1) {
+  optimizedInterpolateAndDraw(x0, y0, x1, y1) {
     const dx = Math.abs(x1 - x0);
     const dy = Math.abs(y1 - y0);
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // 如果距离太小，跳过绘制，减少不必要的像素创建
-    if (distance < 3) {
+    // 即使距离很小也进行绘制，确保最大密度
+    if (distance < 0.1) {
       return;
     }
 
@@ -198,87 +214,74 @@ class TouchInteractionManager {
 
       // 只在最后一个步骤或满足音频条件时播放音频
       const shouldPlayAudio = (i === steps) && this.shouldPlayAudio();
-      this.callbacks.onPlacePixel(px, py, shouldPlayAudio);
+      
+      // 使用优化器放置像素，解决双重线条问题
+      this.optimizedPlacePixel(px, py, shouldPlayAudio);
+    }
+  }
+
+  /**
+   * 优化的像素放置方法 - 解决双重线条问题
+   * @param {number} x - x坐标
+   * @param {number} y - y坐标
+   * @param {boolean} checkAudio - 是否检查音频
+   */
+  optimizedPlacePixel(x, y, checkAudio) {
+    // 使用绘制优化器执行绘制，自动处理防重复、节流等
+    const result = this.drawingOptimizer.optimizedDraw(x, y, (px, py) => {
+      // 实际的绘制回调
+      this.callbacks.onPlacePixel(px, py, checkAudio);
+      return true; // 表示绘制成功
+    }, {
+      useDebounce: false, // 移动绘制时不使用防抖，保持流畅性
+      checkAudio: checkAudio
+    });
+
+    // 记录性能数据
+    if (result) {
+      performanceMonitor.recordDrawCall(
+        result.executed, 
+        result.duplicate, 
+        result.throttled, 
+        result.debounced
+      )
     }
 
-    this.updatePerformanceStats(steps);
+    return result ? result.executed : false;
   }
 
   /**
    * 优化的自适应像素间距计算
-   * 根据移动速度和性能状况动态调整像素间距
+   * 根据移动速度动态调整像素间距，保持笔画连续性
    * @param {number} distance - 移动距离
    * @returns {number} 优化的自适应间距
    */
   calculateOptimizedSpacing(distance) {
     const baseSpacing = this.pixelSpacing;
 
-    // 性能自适应：根据当前性能状况调整间距
-    const performanceFactor = this.getPerformanceFactor();
-
-    // 根据移动距离和性能状况调整间距
+    // 根据移动距离调整间距，保持笔画连续性
     let spacing = baseSpacing;
 
-    if (distance > 80) {
-      // 超快速移动时大幅增加间距
-      spacing = baseSpacing * 3.0 * performanceFactor;
-    } else if (distance > 50) {
-      // 快速移动时增加间距，减少计算量
-      spacing = baseSpacing * 2.0 * performanceFactor;
-    } else if (distance < 10) {
-      // 慢速移动时也增加间距，减少像素密度
-      spacing = baseSpacing * Math.max(1.2, performanceFactor);
+    if (distance > 50) {
+      // 快速移动时轻微增加间距
+      spacing = baseSpacing * 1.2;
+    } else if (distance > 20) {
+      // 中速移动时保持基础间距
+      spacing = baseSpacing;
+    } else if (distance < 2) {
+      // 极慢速移动时使用最小间距
+      spacing = baseSpacing * 0.5;
     } else {
-      // 中等速度时应用性能因子
-      spacing = baseSpacing * 1.5 * performanceFactor;
+      // 慢速移动时略微减小间距
+      spacing = baseSpacing * 0.8;
     }
 
-    return Math.max(6, spacing); // 增加最小间距，减少像素数量
+    return Math.max(0.5, spacing); // 允许更小的间距，实现极致密度
   }
 
-  /**
-   * 获取性能因子（用于动态调整绘制密度）
-   * @returns {number} 性能因子（1.0为正常，>1.0为降低密度）
-   */
-  getPerformanceFactor() {
-    const currentTime = Date.now();
-    const timeSinceReset = currentTime - this.performanceStats.lastResetTime;
 
-    // 每5秒重置一次统计
-    if (timeSinceReset > 5000) {
-      this.resetPerformanceStats();
-      return 1.0;
-    }
 
-    // 根据像素创建频率调整性能因子
-    const pixelsPerSecond = this.performanceStats.pixelsCreated / (timeSinceReset / 1000);
 
-    if (pixelsPerSecond > 100) {
-      return 1.5; // 高频率时降低密度
-    } else if (pixelsPerSecond > 50) {
-      return 1.2; // 中等频率时适度降低密度
-    }
-
-    return 1.0; // 正常密度
-  }
-
-  /**
-   * 更新性能统计
-   * @param {number} pixelCount - 本次创建的像素数量
-   */
-  updatePerformanceStats(pixelCount) {
-    this.performanceStats.pixelsCreated += pixelCount;
-    this.performanceStats.movesProcessed++;
-  }
-
-  /**
-   * 重置性能统计
-   */
-  resetPerformanceStats() {
-    this.performanceStats.pixelsCreated = 0;
-    this.performanceStats.movesProcessed = 0;
-    this.performanceStats.lastResetTime = Date.now();
-  }
   
   /**
    * 处理触摸结束事件
@@ -289,9 +292,11 @@ class TouchInteractionManager {
     
     this.isDrawing = false;
     
+    // 结束绘制会话
+    this.drawingOptimizer.endDrawingSession()
+    
     // 触发结束绘制回调
     this.callbacks.onDrawEnd(this.lastX, this.lastY);
-    
   }
   
   /**
@@ -376,6 +381,16 @@ class TouchInteractionManager {
   destroy() {
     this.reset();
     this.callbacks = {};
+    
+    // 销毁绘制优化器
+    if (this.drawingOptimizer) {
+      this.drawingOptimizer.destroy();
+      this.drawingOptimizer = null;
+    }
+    
+    // 停止性能监控
+    performanceMonitor.stopMonitoring();
+    
     console.log('TouchInteractionManager 已销毁');
   }
 }

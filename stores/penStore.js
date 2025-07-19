@@ -306,22 +306,7 @@ class PenStore {
     return this.currentBrush?.getBrushInfo() || null
   }
 
-  /**
-   * 获取画笔状态摘要（用于调试）
-   * @returns {Object} 状态摘要
-   */
-  getStatusSummary() {
-    return {
-      currentPenType: this.currentPenType,
-      currentBrushSize: this.currentBrushSize,
-      currentColor: this.getCurrentColor(),
-      isEraser: this.isCurrentPenEraser(),
-      penName: this.penTypes[this.currentPenType].name,
-      brushLabel: this.brushSizes[this.currentBrushSize].label,
-      brushCount: this.brushes.size,
-      currentBrushName: this.currentBrush?.name || 'None'
-    }
-  }
+
 }
 
 module.exports = { PenStore }

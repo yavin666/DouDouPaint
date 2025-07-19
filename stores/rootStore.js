@@ -122,15 +122,7 @@ class RootStore {
     return this.canvasConfig.isTransparent
   }
 
-  /**
-   * 获取性能报告
-   */
-  getPerformanceReport() {
-    if (this.animationController) {
-      return this.animationController.getPerformanceReport()
-    }
-    return this.pixelStore.getPerformanceReport()
-  }
+
 
   /**
    * 新的简化接口 - 捕获帧数据用于后端GIF生成

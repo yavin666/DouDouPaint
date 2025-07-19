@@ -1,5 +1,6 @@
 const { WigglePixel } = require('../pixels/wigglePixel')
 const { BRUSH_LAYERS, BRUSH_TYPES } = require('./brushConstants')
+const { AnimationFrameManager } = require('../animationFrameManager')
 
 /**
  * 画笔基类
@@ -30,6 +31,11 @@ class BaseBrush {
     // 新增：统一的画笔参数配置
     this.sizeMultiplier = config.sizeMultiplier || 1.0  // 尺寸倍数
     this.shakeIntensity = config.shakeIntensity || 0.8  // 抖动强度
+    
+    // 初始化动画帧管理器（单例模式）
+    if (!BaseBrush.animationFrameManager) {
+      BaseBrush.animationFrameManager = new AnimationFrameManager()
+    }
   }
 
   /**
@@ -183,7 +189,8 @@ class BaseBrush {
   }
 
   /**
-   * 生成统一的3帧抖动动画
+   * 生成统一的3帧抖动动画（优化版本）
+   * 使用AnimationFrameManager进行内存优化
    * @param {Array} shape - 基础形状像素点数组 [[x, y], ...]
    * @returns {Array} 3帧动画数据
    */
@@ -192,11 +199,12 @@ class BaseBrush {
       return [[], [], []]
     }
 
-    return [
-      shape,  // 第0帧 - 基础位置
-      shape.map(([x, y]) => [x - this.shakeIntensity, y - 0.2]),  // 第1帧 - 左下抖动
-      shape.map(([x, y]) => [x + this.shakeIntensity, y + 0.2])   // 第2帧 - 右上抖动
-    ]
+    // 使用优化的动画帧管理器
+    return BaseBrush.animationFrameManager.generate3FrameAnimation(
+      shape, 
+      this.shakeIntensity,
+      this.brushType
+    )
   }
 
   /**
@@ -206,6 +214,34 @@ class BaseBrush {
    */
   generateShape(size) {
     throw new Error('generateShape方法必须在子类中实现')
+  }
+
+  /**
+   * 静态方法：获取动画帧管理器性能统计
+   * @returns {Object} 性能统计信息
+   */
+  static getAnimationPerformanceStats() {
+    return BaseBrush.animationFrameManager ? 
+      BaseBrush.animationFrameManager.getPerformanceStats() : null
+  }
+
+  /**
+   * 静态方法：清理动画帧管理器缓存
+   */
+  static clearAnimationCache() {
+    if (BaseBrush.animationFrameManager) {
+      BaseBrush.animationFrameManager.clearAllCache()
+    }
+  }
+
+  /**
+   * 静态方法：销毁动画帧管理器
+   */
+  static destroyAnimationManager() {
+    if (BaseBrush.animationFrameManager) {
+      BaseBrush.animationFrameManager.destroy()
+      BaseBrush.animationFrameManager = null
+    }
   }
 }
 

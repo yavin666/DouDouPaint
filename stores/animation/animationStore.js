@@ -79,17 +79,7 @@ class AnimationStore {
     return await this.frameCapture.capture3FramesAsImages(onProgress)
   }
   
-  /**
-   * 获取性能报告（简化版）
-   */
-  getPerformanceReport() {
-    return {
-      isAnimating: this.animationLoop.isRunning,
-      activePixels: this.pixelStore.activePixels.size,
-      totalPixels: this.pixelStore.totalPixelCount,
-      frameRate: this.animationLoop.frameRate
-    }
-  }
+
   
   /**
    * 销毁Store - 彻底清理所有组件，防止内存泄漏
